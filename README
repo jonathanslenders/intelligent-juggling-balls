@@ -1,0 +1,18 @@
+--------------------------
+Intelligent juggling balls
+--------------------------
+
+*** Project in progress ***
+
+
+This will become the code base for my juggling ball project.
+
+I will build a collection of juggling balls. Each with an accelerometer (for
+sensing movements) and Xbee chip (for wireless comunication) attached.
+
+The aim is to enrich juggling with some lighting and sound effects. More
+information will follow.
+
+
+
+- Jonathan Slenders
