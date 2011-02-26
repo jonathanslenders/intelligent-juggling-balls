@@ -83,6 +83,16 @@ void USART_Transmit( unsigned char data)
 	UDR0 = data;
 }
 
+bool USART_Receive_ready()
+{
+	// Wait for data to be received
+	if ( !(UCSR0A & (1<<RXC0)) )
+		return false;
+	else
+		return true;
+}
+
+
 unsigned char USART_Receive( void )
 {
 	// Wait for data to be received
@@ -314,9 +324,9 @@ int lookup_table_8_bit [] = {
 #define LED_ON_VALUE 255
 #define LED_OFF_VALUE 0
 
-#define BLUE_LED OCR1B
-#define RED_LED OCR1A
-#define GREEN_LED OCR2A
+#define BLUE_LED OCR2A
+#define RED_LED OCR1B
+#define GREEN_LED OCR1A
 
 inline void green_led_on() { GREEN_LED = lookup_table_8_bit[15]; }
 inline void blue_led_on() { BLUE_LED = lookup_table_8_bit[15]; }
@@ -340,6 +350,7 @@ void all_leds_on()
 	red_led_on();
 }
 
+	// intensity = 0 .. 15
 void green_led_intensity(unsigned char intensity)
 {
 	GREEN_LED = lookup_table_8_bit[intensity];
@@ -354,6 +365,7 @@ void red_led_intensity(unsigned char intensity)
 }
 
 
+	// percentage = 0 .. 255
 void green_led_percentage(unsigned char percentage)
 {
 	green_led_intensity(percentage / 16);
@@ -376,6 +388,37 @@ void all_leds_percentage(unsigned char percentage)
 
 
 // ===========================[ Programs ]===================================
+
+// utility for converting a hex_to_int char to an integer
+unsigned char hex_to_int(char c)
+{
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	if (c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+	if (c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	return 0;
+}
+
+
+// -0- fixed color
+void pr_fixed_color_install(char * param)
+{
+	__enter_hand_callback = &dummy_callback;
+	__leave_hand_callback = &dummy_callback;
+	__timer_tick_callback = &dummy_callback;
+
+	// Param is supposed to be a hex_to_int color, like FF0044
+	unsigned char red = hex_to_int(param[0]) * 16 + hex_to_int(param[1]);
+	unsigned char green = hex_to_int(param[2]) * 16 + hex_to_int(param[3]);
+	unsigned char blue = hex_to_int(param[4]) * 16 + hex_to_int(param[5]);
+
+	red_led_percentage(red);
+	green_led_percentage(green);
+	blue_led_percentage(blue);
+}
+
 
 // -1- Alternate every throw between red, green and blue
 
@@ -406,7 +449,7 @@ void pr_alternate_leave()
 		red_led_on();
 }
 
-void pr_alternate_install()
+void pr_alternate_install(char* param)
 {
 	__enter_hand_callback = &pr_alternate_enter;
 	__leave_hand_callback = &pr_alternate_leave;
@@ -435,7 +478,7 @@ void pr_interpolate_tick_callback()
 		all_leds_off();
 }
 
-void pr_interpolate_install()
+void pr_interpolate_install(char* param)
 {
 	__enter_hand_callback = &dummy_callback;
 	__leave_hand_callback = &dummy_callback;
@@ -497,12 +540,114 @@ void pr_rain_tick_callback()
 	}
 }
 
-void pr_rain_install()
+void pr_rain_install(char* param)
 {
 	__enter_hand_callback = &pr_rain_enter;
 	__leave_hand_callback = &pr_rain_leave;
 	__timer_tick_callback = &pr_rain_tick_callback;
 }
+
+
+// ===========================[ Input data parser ]===================================
+
+
+const char* program_names[] = {
+	"fixed",
+	"alternate",
+	"rain",
+	"interpolate",
+ };
+
+void (*program_pointers [])(char*) = {
+	&pr_fixed_color_install,
+	&pr_alternate_install,
+	&pr_rain_install,
+	&pr_interpolate_install,
+};
+
+
+
+
+void process_command(char* action, char* ball, char* input_param, char* input_param2)
+{
+	// TODO: for now, we address all balls, but the 'ball' parameter is meant
+	// to filter on address
+
+	// Run program
+	int i;
+	if (strcmp(action, "RUN") == 0)
+	{
+		for (i = 0; i < 3; i ++)
+			if (strcmp(input_param, program_names[i]) == 0)
+				program_pointers[0](input_param2);
+	}
+}
+
+
+// Protocol definition:
+//    action  :=   [a-z]+
+//    ball    :=   [0-9]+
+//    param   :=   [a-z0-9]+
+//    frame   :=  <action>  ' ' <ball> ' ' <param>
+
+
+#define max_input_length 32
+char input_action[max_input_length]; // max length 
+char input_ball[max_input_length]; // max length 
+char input_param1[max_input_length]; // max length 
+char input_param2[max_input_length]; // max length 
+
+volatile int input_pos = 0;
+volatile char * input_part = NULL;
+
+void initialize_input()
+{
+	input_pos = 0;
+	*input_action = 0;
+	*input_ball = 0;
+	*input_param1 = 0;
+	*input_param2 = 0;
+	input_part = input_action;
+}
+
+void parse_input_char(char c)
+{
+	// Newline as new command
+	if (c == '\n')
+	{
+		input_part[input_pos] = '\0'; // terminate command by zero
+		process_command(input_action, input_ball, input_param1, input_param2);
+
+		// Initialize
+		initialize_input();
+	}
+
+	// Space as separator
+	else if (c == ' ')
+	{
+		input_part[input_pos] = '\0'; // terminate command by zero
+		input_pos = 0;
+
+		if (input_part == input_action)
+			input_part = input_ball;
+		else if (input_part == input_ball)
+			input_part = input_param1;
+		else if (input_part == input_param1)
+			input_part = input_param2;
+	}
+	else
+	{
+		// Save input char
+		input_part[input_pos] = c;
+		input_pos += 1;
+
+		// Avoid buffer overflow
+		if (input_pos >= max_input_length - 1)
+			initialize_input();
+	}
+}
+
+
 
 
 
@@ -571,6 +716,7 @@ int main(void)
 		// ADC left adjust result.
 
 	get_x_accelero();
+	initialize_input();
 
 	// Enable global interrupts
 	sei();
@@ -582,7 +728,8 @@ int main(void)
 
 	// Main program loop
 
-	pr_alternate_install();
+	pr_alternate_install("");
+	//pr_fixed_color_install("080000");
 //	pr_interpolate_install();
 //	pr_rain_install();
 
@@ -590,6 +737,11 @@ int main(void)
 	// Main loop
 	while (1)
 	{
+		// Parse incoming data
+		while (USART_Receive_ready())
+			parse_input_char(USART_Receive());
+
+		// Juggle ball program loop
 		if (is_in_free_fall())
 		{
 			if (! __in_free_fall)
