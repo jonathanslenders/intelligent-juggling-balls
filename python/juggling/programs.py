@@ -2,6 +2,9 @@
 from juggling.sounds import SoundEffectManager
 from juggling import settings
 
+import pygame
+import time
+
 _sound_effect_manager = SoundEffectManager()
 
 class Program(object):
@@ -11,20 +14,13 @@ class Program(object):
     def __init__(self):
         pass
 
-    def caught_ball(self, i, intensity):
+    def process_data(self, xbee_data):
         """
         Ball entering hand.
         """
         pass
 
-    def threw_ball(self, i):
-        """
-        Ball leaving hand.
-        """
-        pass
-
-
-class WooshProgram(object):
+class ExampleProgram(object):
     """
     Simple test effect: make sound while a ball is in the air.
     """
@@ -32,15 +28,20 @@ class WooshProgram(object):
         # TODO: send program parameters to all balls.
 
         # Create sounds
-        self.sounds = [
-                _sound_effect_manager.get_sound_effect('woosh')
-                for i in range(0, settings.BALL_COUNT) ]
+        self.do = pygame.mixer.Sound("sounds/do.wav")
+        self.caught_sound = pygame.mixer.Sound("sounds/catch.wav")
+        self.last_throw = time.time()
 
-    def caught_ball(self, i, intensity):
-        pass
+    def process_data(self, xbee_data):
+        if xbee_data.action in ('CAUGHT', 'CAUGHT*'):
+            self.do.stop()
+            self.caught_sound.stop()
 
-    def threw_ball(self, i):
-        print 'play'
-        self.sounds[i].play()
-        #time.sleep(0.300)
-        #self.sounds[i].fadeout()
+            # Volume depends on throw duration
+            duration = min(2, time.time() - self.last_throw) / 2
+            self.caught_sound.play()
+            self.caught_sound.set_volume(duration)
+
+        if xbee_data.action == 'THROWN':
+            self.do.play()
+            self.last_throw = time.time()

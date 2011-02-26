@@ -6,6 +6,7 @@ import pygame
 from juggling.sounds import SoundEffectManager
 from juggling import settings
 from juggling import programs
+from juggling.programs import ExampleProgram
 
 from threading import Thread
 
@@ -77,11 +78,15 @@ class XbeeInterface(Thread):
     def run(self):
         while self._run:
             try:
-                line = self._interface.readline()
-                self._print_data_handler(line.strip())
+                line = self._interface.readline().strip()
+                self._print_data_handler(line)
                 data = line.split()
 
-                if len(data) == 2:
+                if len(data) == 1: # TODO: remove data==1, this is only for testing
+                    p = XbeePacket(data[0], 1)
+                    self._callback(p)
+
+                elif len(data) == 2:
                     p = XbeePacket(data[0], int(data[1]))
                     self._callback(p)
 
@@ -109,19 +114,23 @@ class App(object):
         #status_win = curses.newwin(20, 40, 1, 1)
         status_win = self.scr.subwin(15, 40, 1, 1)
         self.juggle_ball_status_window = JuggleBallStatusWindow(status_win)
-        self.program = getattr(programs, settings.DEFAULT_PROGRAM)()
 
         serial_win = self.scr.subwin(15, 40, 15, 1)
         self.serial_window = SerialWindow(serial_win)
 
         self.refresh()
 
+        # Initialize sound
+        pygame.mixer.init(22050, -16, 2, 1024)
+
         # Initialize Xbee interface
         self.xbee_interface = XbeeInterface(self._xbee_callback, self._xbee_data_print)
         self.xbee_interface.start()
 
+        self.current_program = getattr(programs, settings.DEFAULT_PROGRAM)()
+
     def _xbee_callback(self, data):
-        pass
+        self.current_program.process_data(data)
 
     def _xbee_data_print(self, line):
         self.serial_window.print_line(line)
