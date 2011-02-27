@@ -121,12 +121,14 @@ class JuggleBallStatusWindow(object):
         self.engine = engine
 
         self.engine.add_packet_received_handler(self.packet_received)
-        self.load_statusses()
+        self.paint()
 
     def packet_received(self, packet):
-        self.load_statusses()
+        self.paint()
 
-    def load_statusses(self):
+    def paint(self):
+        self.scr.clear()
+        self.scr.border()
         self.scr.addstr(0, 4, "Juggling balls", curses.A_STANDOUT)
         self.scr.addstr(1, 1,       "Ball | Power | In air | Throws | Catches | Program", curses.A_UNDERLINE)
         for i in range(len(self.engine.states)):
@@ -145,15 +147,11 @@ class JuggleBallStatusWindow(object):
 class SerialWindow(object):
     def __init__(self, scr, engine):
         self.scr = scr
-        self._position = 0
         self._index = 0
-        self.load_window()
 
+        self.lines = [ '' for x in range(10) ]
         engine.add_packet_received_handler(self.packet_received)
-
-    def load_window(self):
-        self.scr.addstr(0, 4, "Serial interface data", curses.A_STANDOUT)
-        self.scr.refresh()
+        self.paint()
 
     def packet_received(self, packet):
         line = 'IN %s %s %s' % (packet.action, packet.ball, packet.param)
@@ -161,10 +159,16 @@ class SerialWindow(object):
 
     def print_line(self, line):
         self._index += 1
-        #self.scr.addstr(1+self._position, 1, '%s : %s : %s' % (self._index, time.time(), line))
-        self.scr.addstr(1+self._position, 1, '%s : %s' % (self._index, line))
-        self._position = (self._position + 1) % 10
-        #self.scr.addstr(1+self._position, 1, ' ' * 40)
+        self.lines = self.lines[1:] + [ '%s : %s' % (self._index, line) ]
+        self.paint()
+
+    def paint(self):
+        self.scr.clear()
+        self.scr.border()
+        self.scr.addstr(0, 4, "Serial interface data", curses.A_STANDOUT)
+        for l in range(10):
+            self.scr.addstr(1+l, 1, self.lines[l])
+            #self.scr.clrtoeol()
         self.scr.refresh()
 
 
@@ -172,13 +176,12 @@ class ProgramWindow(object):
     def __init__(self, scr, programs):
         self.scr = scr
         self.programs = programs
-        self.load_window()
+        self.paint()
 
-    def load_window(self):
+    def paint(self):
         self.scr.addstr(0, 4, "Programs", curses.A_STANDOUT)
 
         pos = 1
-
         for p in self.programs:
             self.scr.addstr(pos, 1, '%s : %s' % (pos, p.description))
             pos += 1
@@ -197,7 +200,6 @@ class App(object):
         # Create windows
         #status_win = curses.newwin(20, 40, 1, 1)
         status_win = self.scr.subwin(15, 60, 0, 0)
-        status_win.border()
         self.status_window = JuggleBallStatusWindow(status_win, self.engine)
 
         serial_win = self.scr.subwin(13, 60, 16, 0)
@@ -216,8 +218,6 @@ class App(object):
         # Initialize Xbee interface
         self.xbee_interface = XbeeInterface(self.engine)
         self.xbee_interface.start()
-
-        self.current_program = self.programs[0]
 
     def _xbee_data_print(self, line):
         self.serial_window.print_line(line)

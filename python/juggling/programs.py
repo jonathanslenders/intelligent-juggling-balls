@@ -28,7 +28,7 @@ class Program(object):
 
 class ExampleProgram(Program):
     """ Test effect: make sound while a ball is in the air. """
-    def __init__(self, status):
+    def __init__(self, engine):
         # TODO: send program parameters to all balls.
 
         # Create sounds
@@ -36,8 +36,10 @@ class ExampleProgram(Program):
         self.caught_sound = pygame.mixer.Sound("sounds/catch.wav")
         self.last_throw = time.time()
 
-    def process_data(self, xbee_data):
-        if xbee_data.action in ('CAUGHT', 'CAUGHT*'):
+        engine.add_packet_received_handler(self.packet_received)
+
+    def packet_received(self, packet):
+        if packet.action in ('CAUGHT', 'CAUGHT*'):
             self.do.stop()
             self.caught_sound.stop()
 
@@ -46,7 +48,7 @@ class ExampleProgram(Program):
             self.caught_sound.play()
             self.caught_sound.set_volume(duration)
 
-        if xbee_data.action == 'THROWN':
+        if packet.action == 'THROWN':
             self.do.play()
             self.last_throw = time.time()
 
