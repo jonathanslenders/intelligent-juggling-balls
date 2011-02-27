@@ -551,6 +551,7 @@ void pr_rain_install(char* param)
 // ===========================[ Input data parser ]===================================
 
 
+#define PROGRAM_COUNT 4
 const char* program_names[] = {
 	"fixed",
 	"alternate",
@@ -577,9 +578,9 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 	int i;
 	if (strcmp(action, "RUN") == 0)
 	{
-		for (i = 0; i < 3; i ++)
+		for (i = 0; i < PROGRAM_COUNT; i ++)
 			if (strcmp(input_param, program_names[i]) == 0)
-				program_pointers[0](input_param2);
+				program_pointers[i](input_param2);
 	}
 }
 
