@@ -80,7 +80,7 @@ class BallState(object):
     """
     def __init__(self):
         self.voltage = 0.0
-        self.free_fall = False
+        self.in_free_fall = False
         self.throws = 0
         self.catches = 0
         self.current_program = 'default'
@@ -101,10 +101,12 @@ class Engine(object):
         if packet.action in ('CAUGHT', 'CAUGHT*'):
             if packet.ball > 0 and packet.ball <= len(self.states):
                 self.states[packet.ball - 1].catches += 1
+                self.states[packet.ball - 1].in_free_fall = False
 
         if packet.action in ('THROWN',):
             if packet.ball > 0 and packet.ball <= len(self.states):
                 self.states[packet.ball - 1].throws += 1
+                self.states[packet.ball - 1].in_free_fall = True
 
         # Call handlers
         for h in self._packet_received_handlers:
@@ -126,13 +128,13 @@ class JuggleBallStatusWindow(object):
 
     def load_statusses(self):
         self.scr.addstr(0, 4, "Juggling balls", curses.A_STANDOUT)
-        self.scr.addstr(1, 1,       "Ball -  Power  -  Free fall  -  Throws - Catches - Program", curses.A_UNDERLINE)
+        self.scr.addstr(1, 1,       "Ball | Power | In air | Throws | Catches | Program", curses.A_UNDERLINE)
         for i in range(len(self.engine.states)):
             state = self.engine.states[i]
-            self.scr.addstr(2+i, 1, " %s     %sV      %s            %s      %s         %s" %
+            self.scr.addstr(2+i, 1, "%3s  %5sv     %-3s     %5s     %5s     %s" %
                         (i+1,
                         state.voltage,
-                        'Yes' if state.free_fall else 'No',
+                        'Yes' if state.in_free_fall else 'No ',
                         state.throws,
                         state.catches,
                         state.current_program))
