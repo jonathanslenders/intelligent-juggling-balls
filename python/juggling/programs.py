@@ -7,12 +7,18 @@ import time
 
 _sound_effect_manager = SoundEffectManager()
 
+test = 9
+
 class Program(object):
     """
     Feedback
     """
-    def __init__(self):
+    def __init__(self, status):
         pass
+
+    @property
+    def description(self):
+        return self.__doc__.replace('\t', ' ').replace('\n', ' ').replace('  ', ' ')
 
     def process_data(self, xbee_data):
         """
@@ -20,11 +26,9 @@ class Program(object):
         """
         pass
 
-class ExampleProgram(object):
-    """
-    Simple test effect: make sound while a ball is in the air.
-    """
-    def __init__(self):
+class ExampleProgram(Program):
+    """ Test effect: make sound while a ball is in the air. """
+    def __init__(self, status):
         # TODO: send program parameters to all balls.
 
         # Create sounds
@@ -45,3 +49,21 @@ class ExampleProgram(object):
         if xbee_data.action == 'THROWN':
             self.do.play()
             self.last_throw = time.time()
+
+
+class FixedColorProgram(Program):
+    """ Show fixed hue. """
+    def __init__(self, status):
+        pass
+        
+
+    def activate(self, color_hue):
+        pass
+
+
+
+ALL_PROGRAMS = (
+    ExampleProgram,
+    FixedColorProgram
+    )
+

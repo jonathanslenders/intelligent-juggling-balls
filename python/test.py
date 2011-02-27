@@ -5,7 +5,19 @@ import time
 import colorsys
 
 # Initialize USART interface
-ball = serial.Serial('/dev/ttyUSB1', baudrate=9600)
+ball = serial.Serial('/dev/ttyUSB0', baudrate=9600)
+
+last_throw = time.time()
+
+
+
+ball.write("\nRUN 0 rain\n")
+while True:
+	print ball.readline()
+exit(0)
+
+
+
 
 # Initialize sound
 pygame.mixer.init(22050, -16, 2, 1024)
@@ -13,14 +25,13 @@ pygame.mixer.init(22050, -16, 2, 1024)
 do = pygame.mixer.Sound("sounds/do.wav")
 caught_sound = pygame.mixer.Sound("sounds/catch.wav")
 
-last_throw = time.time()
-
-
 def int_to_hex_str(i):
 	if (i < 16):
 		return '0' + hex(i)[-1:].upper()
 	else:
 		return hex(i)[-2:].upper()
+
+
 
 
 while False:
@@ -41,8 +52,7 @@ while True:
 				)
 		print command
 		ball.write(command)
-#		time.sleep(.2)
-
+		time.sleep(.2)
 
 
 

@@ -10,38 +10,12 @@ from juggling.programs import ExampleProgram
 
 from threading import Thread
 
-class JuggleBallStatusWindow(object):
-    def __init__(self, scr):
-        self.scr = scr
-        self.load_statusses()
-
-    def load_statusses(self):
-        self.scr.addstr(0, 0, "Juggling balls", curses.A_STANDOUT)
-        self.scr.addstr(1, 0, "Item  -  Power  -  Free fall  - Catches", curses.A_UNDERLINE)
-        for x in range(10):
-            self.scr.addstr(2+x, 0, "1     100%     -  No")
-
-        self.scr.refresh()
-
-class SerialWindow(object):
-    def __init__(self, scr):
-        self.scr = scr
-        self._position = 0
-        self.load_window()
-
-    def load_window(self):
-        self.scr.addstr(0, 0, "Serial interface data", curses.A_STANDOUT)
-        self.print_line('test')
-        self.print_line('test 2')
-        self.scr.refresh()
-
-    def print_line(self, line):
-        self.scr.addstr(1+self._position, 0, '%s : %s' % (time.time(), line))
-        self._position = (self._position + 1) % 10
-        self.scr.addstr(1+self._position, 0, ' ' * 40)
-        self.scr.refresh()
+        #curses.reset_shell_mode()
+        #import pdb; pdb.set_trace()
+        #curses.reset_prog_mode()
 
 
+# ========================[ Xbee interface ]================
 
 class XbeePacket(object):
     """
@@ -62,15 +36,13 @@ class XbeeInterface(Thread):
     """
     Communication with the FT232 / Xbee
     """
-    def __init__(self, callback, print_data_handler=None):
+    def __init__(self, engine):
         Thread.__init__(self)
         self._run = True
-        self._callback = callback
-        self._print_data_handler = print_data_handler or (lambda d: None)
+        self._engine = engine
         
         # Initialize USART interface
         self._interface = serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=2)
-        print_data_handler('test44')
 
     def stop(self):
         self._run = False
@@ -79,44 +51,160 @@ class XbeeInterface(Thread):
         while self._run:
             try:
                 line = self._interface.readline().strip()
-                self._print_data_handler(line)
+                #self._print_data_handler(line)
                 data = line.split()
 
                 if len(data) == 1: # TODO: remove data==1, this is only for testing
                     p = XbeePacket(data[0], 1)
-                    self._callback(p)
+                    self._engine.packet_received(p)
 
                 elif len(data) == 2:
                     p = XbeePacket(data[0], int(data[1]))
-                    self._callback(p)
+                    self._engine.packet_received(p)
 
                 elif len(data) == 3:
                     p = XbeePacket(data[0], int(data[1]), data[2])
-                    self._callback(p)
+                    self._engine.packet_received(p)
+
+                    # TODO: show error data
+
             except serial.SerialTimeoutException, e:
                 pass
 
-    def send_packet(self, packet):
-        line = '%s %s %s\r\n' % (packet.action, packet.ball, packet.param)
-        self._interface.write(line)
+# ========================[ Core ]================
 
+
+class BallState(object):
+    """
+    State of a ball.
+    """
+    def __init__(self):
+        self.voltage = 0.0
+        self.free_fall = False
+        self.throws = 0
+        self.catches = 0
+        self.current_program = 'default'
+
+class Engine(object):
+    """
+    Core, where the packets come in and the event handlers are called.
+    """
+    def __init__(self):
+        self.states = [ BallState() for x in range(0,10) ]
+        self._packet_received_handlers = []
+
+    def add_packet_received_handler(self, handler):
+        self._packet_received_handlers.append(handler)
+
+    def packet_received(self, packet):
+        # Update ball states
+        if packet.action in ('CAUGHT', 'CAUGHT*'):
+            if packet.ball > 0 and packet.ball <= len(self.states):
+                self.states[packet.ball - 1].catches += 1
+
+        if packet.action in ('THROWN',):
+            if packet.ball > 0 and packet.ball <= len(self.states):
+                self.states[packet.ball - 1].throws += 1
+
+        # Call handlers
+        for h in self._packet_received_handlers:
+            h(packet)
+
+
+# =================[ Windows ]================
+
+class JuggleBallStatusWindow(object):
+    def __init__(self, scr, engine):
+        self.scr = scr
+        self.engine = engine
+
+        self.engine.add_packet_received_handler(self.packet_received)
+        self.load_statusses()
+
+    def packet_received(self, packet):
+        self.load_statusses()
+
+    def load_statusses(self):
+        self.scr.addstr(0, 4, "Juggling balls", curses.A_STANDOUT)
+        self.scr.addstr(1, 1,       "Ball -  Power  -  Free fall  -  Throws - Catches - Program", curses.A_UNDERLINE)
+        for i in range(len(self.engine.states)):
+            state = self.engine.states[i]
+            self.scr.addstr(2+i, 1, " %s     %sV      %s            %s      %s         %s" %
+                        (i+1,
+                        state.voltage,
+                        'Yes' if state.free_fall else 'No',
+                        state.throws,
+                        state.catches,
+                        state.current_program))
+
+        self.scr.refresh()
+
+
+class SerialWindow(object):
+    def __init__(self, scr, engine):
+        self.scr = scr
+        self._position = 0
+        self._index = 0
+        self.load_window()
+
+        engine.add_packet_received_handler(self.packet_received)
+
+    def load_window(self):
+        self.scr.addstr(0, 4, "Serial interface data", curses.A_STANDOUT)
+        self.scr.refresh()
+
+    def packet_received(self, packet):
+        line = 'IN %s %s %s' % (packet.action, packet.ball, packet.param)
+        self.print_line(line)
+
+    def print_line(self, line):
+        self._index += 1
+        #self.scr.addstr(1+self._position, 1, '%s : %s : %s' % (self._index, time.time(), line))
+        self.scr.addstr(1+self._position, 1, '%s : %s' % (self._index, line))
+        self._position = (self._position + 1) % 10
+        #self.scr.addstr(1+self._position, 1, ' ' * 40)
+        self.scr.refresh()
+
+
+class ProgramWindow(object):
+    def __init__(self, scr, programs):
+        self.scr = scr
+        self.programs = programs
+        self.load_window()
+
+    def load_window(self):
+        self.scr.addstr(0, 4, "Programs", curses.A_STANDOUT)
+
+        pos = 1
+
+        for p in self.programs:
+            self.scr.addstr(pos, 1, '%s : %s' % (pos, p.description))
+            pos += 1
+
+        self.scr.refresh()
+
+# =================[ Main app ]================
 
 class App(object):
-    def __init__(self):
-        # Initialise ncurses
-        self.scr = curses.initscr()
-        curses.noecho()
-        curses.cbreak()
-        self.scr.keypad(1)
-        curses.curs_set(0)
+    def __init__(self, scr):
+        self.scr = scr
+
+        self.engine= Engine()
+        self.programs = [ p(self.engine) for p in programs.ALL_PROGRAMS ]
 
         # Create windows
         #status_win = curses.newwin(20, 40, 1, 1)
-        status_win = self.scr.subwin(15, 40, 1, 1)
-        self.juggle_ball_status_window = JuggleBallStatusWindow(status_win)
+        status_win = self.scr.subwin(15, 60, 0, 0)
+        status_win.border()
+        self.status_window = JuggleBallStatusWindow(status_win, self.engine)
 
-        serial_win = self.scr.subwin(15, 40, 15, 1)
-        self.serial_window = SerialWindow(serial_win)
+        serial_win = self.scr.subwin(13, 60, 16, 0)
+        serial_win.border()
+        self.serial_window = SerialWindow(serial_win, self.engine)
+
+        program_win = self.scr.subwin(5, 80, 30, 0)
+        program_win.border()
+        self.program_window = ProgramWindow(program_win, self.programs)
 
         self.refresh()
 
@@ -124,47 +212,41 @@ class App(object):
         pygame.mixer.init(22050, -16, 2, 1024)
 
         # Initialize Xbee interface
-        self.xbee_interface = XbeeInterface(self._xbee_callback, self._xbee_data_print)
+        self.xbee_interface = XbeeInterface(self.engine)
         self.xbee_interface.start()
 
-        self.current_program = getattr(programs, settings.DEFAULT_PROGRAM)()
-
-    def _xbee_callback(self, data):
-        self.current_program.process_data(data)
+        self.current_program = self.programs[0]
 
     def _xbee_data_print(self, line):
         self.serial_window.print_line(line)
+    write = _xbee_data_print
 
     def refresh(self):
         self.scr.refresh()
 
     def exit(self):
-        # Exit curses library
-        curses.nocbreak()
-        self.scr.keypad(0)
-        curses.curs_set(1)
-        curses.echo()
-        curses.endwin()
-
         # Quit Xbee interface
         self.xbee_interface.stop()
         self.xbee_interface.join()
-        print 'Exited'
 
     def handle_input(self):
         while True:
             c = self.scr.getch()
 
+            self.write('char ' + str(c))
+
             if c == ord('q'):
                 self.exit()
                 return
 
-            elif c == ord('a'):
-                self.program.threw_ball(0)
-
-            elif c == ord('b'):
-                self.program.threw_ball(1)
+            elif c == 9: # Tab
+                pass
 
 
-a = App()
-a.handle_input()
+
+def main(scr):
+    a = App(scr)
+    a.handle_input()
+
+curses.wrapper(main)
+print 'Exited'
