@@ -190,12 +190,25 @@ class ProgramWindow(object):
 
 # =================[ Main app ]================
 
-class App(object):
-    def __init__(self, scr):
-        self.scr = scr
+class Core(object):
+    def __init__(self):
+        # Initialize sound
+        pygame.mixer.init(22050, -16, 2, 1024)
 
-        self.engine= Engine()
+        self.engine = Engine()
         self.programs = [ p(self.engine) for p in programs.ALL_PROGRAMS ]
+
+        # Initialize Xbee interface
+        self.xbee_interface = XbeeInterface(self.engine)
+        self.xbee_interface.start()
+
+
+class App(object):
+    def __init__(self, scr, core):
+        self.scr = scr
+        self.engine = core.engine
+        self.programs = core.programs
+        self.xbee_interface = core.xbee_interface
 
         # Create windows
         #status_win = curses.newwin(20, 40, 1, 1)
@@ -211,13 +224,6 @@ class App(object):
         self.program_window = ProgramWindow(program_win, self.programs)
 
         self.refresh()
-
-        # Initialize sound
-        pygame.mixer.init(22050, -16, 2, 1024)
-
-        # Initialize Xbee interface
-        self.xbee_interface = XbeeInterface(self.engine)
-        self.xbee_interface.start()
 
     def _xbee_data_print(self, line):
         self.serial_window.print_line(line)
@@ -246,9 +252,14 @@ class App(object):
 
 
 
+#pygame.mixer.init(22050, -16, 2, 1024)
+#serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=2)
+
+core = Core()
 def main(scr):
-    a = App(scr)
+    a = App(scr, core)
     a.handle_input()
 
-curses.wrapper(main)
+print curses.wrapper(main)
 print 'Exited'
+import traceback; traceback.print_exc()

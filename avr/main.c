@@ -47,6 +47,15 @@ volatile unsigned int __free_fall_duration = 0;
 volatile unsigned int __time_since_last_catch = 0;
 volatile bool __in_free_fall = false;
 
+// Report first movement variables
+	// When this boolean is True, and the x,y or z value
+	// differs more than FIRST_MOVEMENT_TRESHOLD from
+	// the saved value. Report as changed.
+volatile bool __report_movement = false;
+volatile unsigned char __report_movement_x = 0;
+volatile unsigned char __report_movement_y = 0;
+volatile unsigned char __report_movement_z = 0;
+#define FIRST_MOVEMENT_TRESHOLD 3
 
 // Function pointers to the current light-program.
 // Every effect should implement these callbacks.
@@ -182,6 +191,25 @@ inline bool is_in_free_fall()
 	unsigned char y = get_y_accelero();
 	unsigned char x = get_x_accelero();
 
+	// Do we need to report a movement?
+	if (__report_movement)
+		if (
+					// NOTE: overflow may be possible but should be
+					//       exceptional.
+			x > __report_movement_x + FIRST_MOVEMENT_TRESHOLD ||
+			x < __report_movement_x - FIRST_MOVEMENT_TRESHOLD ||
+
+			y > __report_movement_y + FIRST_MOVEMENT_TRESHOLD ||
+			y < __report_movement_y - FIRST_MOVEMENT_TRESHOLD ||
+
+			z > __report_movement_z + FIRST_MOVEMENT_TRESHOLD ||
+			z < __report_movement_z - FIRST_MOVEMENT_TRESHOLD)
+		{
+			__report_movement = false;
+			usart_send_string("MOVED\r\n");
+		}
+
+
 	// TODO: calculate impact. (pytagoras distance to center.)
 	//int delta_x = (x > X_CENTER ? x - X_CENTER : X_CENTER - x);
 	//int delta_y = (y > Y_CENTER ? y - Y_CENTER : Y_CENTER - y);
@@ -191,6 +219,7 @@ inline bool is_in_free_fall()
 	//int impact_2 = (delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
 
 	//return (delta_x < PRECISION && delta_y < PRECISION & delta_z < PRECISION);
+
 
 
 	// Return True when all valus are within the boundaries
@@ -581,6 +610,16 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 		for (i = 0; i < PROGRAM_COUNT; i ++)
 			if (strcmp(input_param, program_names[i]) == 0)
 				program_pointers[i](input_param2);
+	}
+
+	// Send feedback on next movement detection
+	else if (strcmp(action, "REPORT_MOVE") == 0)
+	{
+		__report_movement = false; // mutex
+		__report_movement_x = get_x_accelero();
+		__report_movement_y = get_y_accelero();
+		__report_movement_z = get_z_accelero();
+		__report_movement = true;
 	}
 }
 

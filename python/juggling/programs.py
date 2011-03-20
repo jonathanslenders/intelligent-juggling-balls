@@ -1,13 +1,8 @@
 
-from juggling.sounds import SoundEffectManager
 from juggling import settings
 
 import pygame
 import time
-
-_sound_effect_manager = SoundEffectManager()
-
-test = 9
 
 class Program(object):
     """
@@ -33,7 +28,15 @@ class ExampleProgram(Program):
 
         # Create sounds
         self.do = pygame.mixer.Sound("sounds/do.wav")
-        self.caught_sound = pygame.mixer.Sound("sounds/catch.wav")
+        #self.caught_sound = pygame.mixer.Sound("sounds/catch.wav")
+
+			# Using a list of the same effect allows us to continue playing the
+			# first while a second starts. (up to three now).
+        self.caught_sounds = [ pygame.mixer.Sound("sounds/Explosion 01.wav"),
+                pygame.mixer.Sound("sounds/Explosion 01.wav"),
+                pygame.mixer.Sound("sounds/Explosion 01.wav")
+                ]
+        self.caught_sounds_index = 0
         self.last_throw = time.time()
 
         engine.add_packet_received_handler(self.packet_received)
@@ -41,12 +44,13 @@ class ExampleProgram(Program):
     def packet_received(self, packet):
         if packet.action in ('CAUGHT', 'CAUGHT*'):
             self.do.stop()
-            self.caught_sound.stop()
+#            self.caught_sound.stop()
 
             # Volume depends on throw duration
             duration = min(2, time.time() - self.last_throw) / 2
-            self.caught_sound.play()
-            self.caught_sound.set_volume(duration)
+            self.caught_sounds_index = (self.caught_sounds_index + 1) % 3
+            self.caught_sounds[self.caught_sounds_index].play()
+            self.caught_sounds[self.caught_sounds_index].set_volume(duration)
 
         if packet.action == 'THROWN':
             self.do.play()
