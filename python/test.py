@@ -45,7 +45,7 @@ while False:
 
 
 # ping test
-if True:
+if False:
 	while True:
 		print 'ping'
 		ball.write("\nPING\n")
@@ -55,7 +55,7 @@ if True:
 
 ### Identify test
 
-if False:
+if True:
 	while True:
 		print 'identify'
 		ball.write("\nIDENTIFY\n")

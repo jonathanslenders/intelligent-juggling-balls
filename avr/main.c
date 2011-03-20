@@ -577,8 +577,7 @@ void pr_rain_install(char* param)
 }
 
 
-// ===========================[ Input data parser ]===================================
-
+// List of installed programs
 
 #define PROGRAM_COUNT 4
 const char* program_names[] = {
@@ -596,6 +595,8 @@ void (*program_pointers [])(char*) = {
 };
 
 
+
+// ===========================[ Input data parser ]===================================
 
 
 void process_command(char* action, char* ball, char* input_param, char* input_param2)
