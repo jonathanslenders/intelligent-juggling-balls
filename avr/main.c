@@ -603,8 +603,9 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 	// TODO: for now, we address all balls, but the 'ball' parameter is meant
 	// to filter on address
 
-	// Run program
 	int i;
+
+	// RUN: Run program
 	if (strcmp(action, "RUN") == 0)
 	{
 		for (i = 0; i < PROGRAM_COUNT; i ++)
@@ -612,7 +613,7 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 				program_pointers[i](input_param2);
 	}
 
-	// Send feedback on next movement detection
+	// REPORT_MOVE: send feedback on the first, next movement 
 	else if (strcmp(action, "REPORT_MOVE") == 0)
 	{
 		__report_movement = false; // mutex
@@ -620,6 +621,34 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 		__report_movement_y = get_y_accelero();
 		__report_movement_z = get_z_accelero();
 		__report_movement = true;
+	}
+
+	// PING: answer with PONG
+	else if (strcmp(action, "PING") == 0)
+	{
+		usart_send_string("PONG\r\n");
+	}
+
+	// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
+	else if (strcmp(action, "IDENTIFY") == 0)
+	{
+		// Disable all interrupts
+		cli();
+
+		// TODO: read current led intensity
+
+		for (i = 0; i < 10; i ++)
+		{
+			all_leds_on();
+			_delay_ms(50);
+			all_leds_off();
+			_delay_ms(50);
+		}
+
+		// TODO: restore current led intensity
+
+		// Enable all interrupts again
+		cli();
 	}
 }
 
@@ -653,7 +682,7 @@ void initialize_input()
 void parse_input_char(char c)
 {
 	// Newline as new command
-	if (c == '\n')
+	if (c == '\n' || c == '\r')
 	{
 		input_part[input_pos] = '\0'; // terminate command by zero
 		process_command(input_action, input_ball, input_param1, input_param2);
@@ -661,7 +690,6 @@ void parse_input_char(char c)
 		// Initialize
 		initialize_input();
 	}
-
 	// Space as separator
 	else if (c == ' ')
 	{

@@ -34,6 +34,7 @@ def int_to_hex_str(i):
 
 
 
+### Color test
 
 while False:
     for i in range (0, 255):
@@ -43,9 +44,27 @@ while False:
 #        time.sleep(.02)
 
 
+# ping test
+if True:
+	while True:
+		print 'ping'
+		ball.write("\nPING\n")
+		time.sleep(.5)
+		print ball.readline()
+		time.sleep(.5)
+
+### Identify test
+
+if False:
+	while True:
+		print 'identify'
+		ball.write("\nIDENTIFY\n")
+		time.sleep(5)
+		
+
 ### Report first move test ###
 
-if True:
+if False:
 	while True:
 		moved = False
 		ball.write("\nREPORT_MOVE\n") # Actually, needs to be sent only once for every MOVE to receive.
