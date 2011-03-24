@@ -21,7 +21,7 @@ class XbeePacket(object):
     """
     Data packet for our custom juggling protocol.
     """
-    def __init__(self, action, ball=0, param=None):
+    def __init__(self, action, ball=0, param=None, param2=None):
         """
         action in ('CAUGHT', 'THROWN', ...)
         ball: 0 for addressing every ball, otherwise ball number
@@ -29,7 +29,8 @@ class XbeePacket(object):
         """
         self.action = str(action).upper()
         self.ball = int(ball)
-        self.param = str(param)
+        self.param = str(param or '')
+        self.param2 = str(param2 or '')
 
 
 class XbeeInterface(Thread):
@@ -42,7 +43,7 @@ class XbeeInterface(Thread):
         self._engine = engine
         
         # Initialize USART interface
-        self._interface = serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=2)
+        self._interface = serial.Serial('/dev/ttyUSB1', baudrate=9600, timeout=2)
 
     def stop(self):
         self._run = False
@@ -51,7 +52,6 @@ class XbeeInterface(Thread):
         while self._run:
             try:
                 line = self._interface.readline().strip()
-                #self._print_data_handler(line)
                 data = line.split()
 
                 if len(data) == 1: # TODO: remove data==1, this is only for testing
@@ -70,6 +70,10 @@ class XbeeInterface(Thread):
 
             except serial.SerialTimeoutException, e:
                 pass
+    
+    def send_packet(self, packet):
+        self._interface.write("\r\n%s %s %s %s\r\n" % (packet.action, packet.ball, packet.param, packet.param2))
+        
 
 # ========================[ Core ]================
 
@@ -90,11 +94,28 @@ class Engine(object):
     Core, where the packets come in and the event handlers are called.
     """
     def __init__(self):
+        # State variables
         self.states = [ BallState() for x in range(0,10) ]
+
+        # Callbacks
         self._packet_received_handlers = []
+        self._packet_sent_handlers = []
+
+        # Initialize Xbee interface
+        self.xbee_interface = XbeeInterface(self)
+        self.xbee_interface.start()
+
+        # Initialize sound
+        pygame.mixer.init(22050, -16, 2, 1024)
+
+        # Initialize programs
+        self.programs = [ p(self) for p in programs.ALL_PROGRAMS ]
 
     def add_packet_received_handler(self, handler):
         self._packet_received_handlers.append(handler)
+
+    def add_packet_sent_handler(self, handler):
+        self._packet_sent_handlers.append(handler)
 
     def packet_received(self, packet):
         # Update ball states
@@ -110,6 +131,14 @@ class Engine(object):
 
         # Call handlers
         for h in self._packet_received_handlers:
+            h(packet)
+
+    def send_packet(self, *args, **kwargs):
+        packet = XbeePacket(*args, **kwargs)
+        self.xbee_interface.send_packet(packet)
+        
+        # Call handlers
+        for h in self._packet_sent_handlers:
             h(packet)
 
 
@@ -151,10 +180,15 @@ class SerialWindow(object):
 
         self.lines = [ '' for x in range(10) ]
         engine.add_packet_received_handler(self.packet_received)
+        engine.add_packet_sent_handler(self.packet_sent)
         self.paint()
 
     def packet_received(self, packet):
-        line = 'IN %s %s %s' % (packet.action, packet.ball, packet.param)
+        line = 'IN %s %s %s %s' % (packet.action, packet.ball, packet.param, packet.param2)
+        self.print_line(line)
+
+    def packet_sent(self, packet):
+        line = 'OUT %s %s %s %s' % (packet.action, packet.ball, packet.param, packet.param2)
         self.print_line(line)
 
     def print_line(self, line):
@@ -190,25 +224,12 @@ class ProgramWindow(object):
 
 # =================[ Main app ]================
 
-class Core(object):
-    def __init__(self):
-        # Initialize sound
-        pygame.mixer.init(22050, -16, 2, 1024)
-
-        self.engine = Engine()
-        self.programs = [ p(self.engine) for p in programs.ALL_PROGRAMS ]
-
-        # Initialize Xbee interface
-        self.xbee_interface = XbeeInterface(self.engine)
-        self.xbee_interface.start()
-
-
 class App(object):
-    def __init__(self, scr, core):
+    def __init__(self, scr, engine):
         self.scr = scr
-        self.engine = core.engine
-        self.programs = core.programs
-        self.xbee_interface = core.xbee_interface
+        self.engine = engine
+        self.programs = engine.programs
+        self.xbee_interface = engine.xbee_interface
 
         # Create windows
         #status_win = curses.newwin(20, 40, 1, 1)
@@ -247,19 +268,26 @@ class App(object):
                 self.exit()
                 return
 
+            elif c == ord('0'):
+                self.engine.programs[0].activate()
+            elif c == ord('1'):
+                self.engine.programs[1].activate()
+            elif c == ord('2'):
+                self.engine.programs[2].activate()
+            elif c == ord('3'):
+                self.engine.programs[3].activate()
+
             elif c == 9: # Tab
                 pass
 
 
 
-#pygame.mixer.init(22050, -16, 2, 1024)
-#serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=2)
+if __name__ == '__main__':
+    engine = Engine()
+    def main(scr):
+        a = App(scr, engine)
+        a.handle_input()
 
-core = Core()
-def main(scr):
-    a = App(scr, core)
-    a.handle_input()
-
-print curses.wrapper(main)
-print 'Exited'
-import traceback; traceback.print_exc()
+    print curses.wrapper(main)
+    print 'Exited'
+    import traceback; traceback.print_exc()
