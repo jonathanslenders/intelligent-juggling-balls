@@ -5,13 +5,13 @@ import time
 import colorsys
 
 # Initialize USART interface
-ball = serial.Serial('/dev/ttyUSB0', baudrate=9600)
+ball = serial.Serial('/dev/ttyUSB1', baudrate=9600)
 
 last_throw = time.time()
 
 
 
-if False:
+if True:
     ball.write("\nRUN 0 rain\n")
     while True:
         print ball.readline()
@@ -46,35 +46,35 @@ while False:
 
 # ping test
 if False:
-	while True:
-		print 'ping'
-		ball.write("\nPING\n")
-		time.sleep(.5)
-		print ball.readline()
-		time.sleep(.5)
+    while True:
+        print 'ping'
+        ball.write("\nPING\n")
+        time.sleep(.5)
+        print ball.readline()
+        time.sleep(.5)
 
 ### Identify test
 
 if True:
-	while True:
-		print 'identify'
-		ball.write("\nIDENTIFY\n")
-		time.sleep(5)
-		
+    while True:
+        print 'identify'
+        ball.write("\nIDENTIFY\n")
+        time.sleep(5)
+        
 
 ### Report first move test ###
 
 if False:
-	while True:
-		moved = False
-		ball.write("\nREPORT_MOVE\n") # Actually, needs to be sent only once for every MOVE to receive.
+    while True:
+        moved = False
+        ball.write("\nREPORT_MOVE\n") # Actually, needs to be sent only once for every MOVE to receive.
 
-		while not moved:
-			line = ball.readline()
-			if 'MOVE' in line:
-				print 'moved'
-				time.sleep(.2)
-				moved = True
+        while not moved:
+            line = ball.readline()
+            if 'MOVE' in line:
+                print 'moved'
+                time.sleep(.2)
+                moved = True
 
 
 

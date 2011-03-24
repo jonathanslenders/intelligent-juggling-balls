@@ -159,7 +159,7 @@ class JuggleBallStatusWindow(object):
         self.scr.clear()
         self.scr.border()
         self.scr.addstr(0, 4, "Juggling balls", curses.A_STANDOUT)
-        self.scr.addstr(1, 1,       "Ball | Power | In air | Throws | Catches | Program", curses.A_UNDERLINE)
+        self.scr.addstr(1, 1, "Ball | Power | In air | Throws | Catches | Program", curses.A_UNDERLINE)
         for i in range(len(self.engine.states)):
             state = self.engine.states[i]
             self.scr.addstr(2+i, 1, "%3s  %5sv     %-3s     %5s     %5s     %s" %
@@ -214,10 +214,11 @@ class ProgramWindow(object):
 
     def paint(self):
         self.scr.addstr(0, 4, "Programs", curses.A_STANDOUT)
+        self.scr.addstr(1, 1, "ID | Active | Description", curses.A_UNDERLINE)
 
         pos = 1
         for p in self.programs:
-            self.scr.addstr(pos, 1, '%s : %s' % (pos, p.description))
+            self.scr.addstr(pos+1, 1, '%s : %s : %s' % (pos, 'x' if p.is_active else ' ', p.description))
             pos += 1
 
         self.scr.refresh()
@@ -240,7 +241,7 @@ class App(object):
         serial_win.border()
         self.serial_window = SerialWindow(serial_win, self.engine)
 
-        program_win = self.scr.subwin(5, 80, 30, 0)
+        program_win = self.scr.subwin(10, 80, 30, 0)
         program_win.border()
         self.program_window = ProgramWindow(program_win, self.programs)
 
@@ -254,9 +255,26 @@ class App(object):
         self.scr.refresh()
 
     def exit(self):
+        self.deactivate_all_programs()
+
         # Quit Xbee interface
         self.xbee_interface.stop()
         self.xbee_interface.join()
+
+    def deactivate_all_programs(self):
+        # Deactivate possible active programs
+        for p in self.engine.programs:
+            if p.is_active:
+                p.deactivate()
+
+    def activate_program(self, index):
+        self.deactivate_all_programs()
+
+        # Activate new program
+        if index < len(self.engine.programs):
+            self.engine.programs[index].activate()
+
+        self.program_window.paint()
 
     def handle_input(self):
         while True:
@@ -268,14 +286,8 @@ class App(object):
                 self.exit()
                 return
 
-            elif c == ord('0'):
-                self.engine.programs[0].activate()
-            elif c == ord('1'):
-                self.engine.programs[1].activate()
-            elif c == ord('2'):
-                self.engine.programs[2].activate()
-            elif c == ord('3'):
-                self.engine.programs[3].activate()
+            elif c >= ord('1') and c <= ord('9'):
+                self.activate_program(c - ord('0') - 1)
 
             elif c == 9: # Tab
                 pass
