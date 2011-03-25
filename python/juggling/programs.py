@@ -45,8 +45,10 @@ class ExampleProgram(Program):
         # TODO: send program parameters to all balls.
 
         # Create sounds
-        self.do = pygame.mixer.Sound("sounds/do.wav")
+        #self.do = pygame.mixer.Sound("sounds/do.wav")
         #self.caught_sound = pygame.mixer.Sound("sounds/catch.wav")
+
+        self.fly = pygame.mixer.Sound("sounds/Missile Fly By 01.wav")
 
             # Using a list of the same effect allows us to continue playing the
             # first while a second starts. (up to three now).
@@ -62,17 +64,18 @@ class ExampleProgram(Program):
     def packet_received(self, packet):
         if self.is_active:
             if packet.action in ('CAUGHT', 'CAUGHT*'):
-                self.do.stop()
-    #            self.caught_sound.stop()
+                self.fly.stop()
 
                 # Volume depends on throw duration
-                duration = min(2, time.time() - self.last_throw) / 2
-                self.caught_sounds_index = (self.caught_sounds_index + 1) % 3
-                self.caught_sounds[self.caught_sounds_index].play()
-                self.caught_sounds[self.caught_sounds_index].set_volume(duration)
+                if packet.action == 'CAUGHT':
+                    duration = min(2, time.time() - self.last_throw) / 2
+                    self.caught_sounds_index = (self.caught_sounds_index + 1) % 3
+                    self.caught_sounds[self.caught_sounds_index].play()
+                    self.caught_sounds[self.caught_sounds_index].set_volume(duration)
 
             if packet.action == 'THROWN':
-                self.do.play()
+                self.fly.play()
+                self.fly.set_volume(.2)
                 self.last_throw = time.time()
 
     def activate(self):
@@ -86,7 +89,7 @@ class HueTestProgram(Program, Thread):
             def run(s):
                 while True:
                     # Loop through color range
-                    for i in range (0, 255):
+                    for i in range (0, 255, 2):
                         r,g,b = colorsys.hsv_to_rgb(i / 255., 1, .3)
                         self.engine.send_packet('RUN', 0, 'fixed', '%s%s%s' % (
                             s.int_to_hex_str(int(r*255)),
@@ -94,7 +97,7 @@ class HueTestProgram(Program, Thread):
                             s.int_to_hex_str(int(b*255))
                             ))
 
-                        time.sleep(.1)
+                        time.sleep(.15)
 
                         # When deactivated, stop thread.
                         if not self.is_active:

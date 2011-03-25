@@ -12,6 +12,14 @@
 #include <stdlib.h>
 
 
+// ******** __ Ball config __ *******
+
+#define BALL_ID 1 // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID_STR "1"
+
+// ******** __ end of ball config __ *******
+
+
 // *** XBee Signal Strength Reader
 // http://www.makingthingstalk.com/chapter8/22/#more-22
 
@@ -82,7 +90,7 @@ inline void usart_init(unsigned int ubrr)
 	UCSR0C = (1<<USBS0)|(3<<UCSZ00);
 }
 
-void USART_Transmit( unsigned char data)
+void usart_transmit( unsigned char data)
 {
 	// Wait for empty transmit buffer
 	while ( !( UCSR0A & (1<<UDRE0)) )
@@ -92,7 +100,7 @@ void USART_Transmit( unsigned char data)
 	UDR0 = data;
 }
 
-bool USART_Receive_ready()
+bool usart_receive_ready()
 {
 	// Wait for data to be received
 	if ( !(UCSR0A & (1<<RXC0)) )
@@ -102,7 +110,7 @@ bool USART_Receive_ready()
 }
 
 
-unsigned char USART_Receive( void )
+unsigned char usart_receive( void )
 {
 	// Wait for data to be received
 	while ( !(UCSR0A & (1<<RXC0)) )
@@ -116,14 +124,14 @@ void usart_send_byte(unsigned char c)
 {
 	if (c >= 10)
 		usart_send_byte(c / 10);
-	USART_Transmit('0' + (c % 10));
+	usart_transmit('0' + (c % 10));
 }
 
 void usart_send_int(unsigned int i)
 {
 	if (i >= 10)
 		usart_send_byte(i / 10);
-	USART_Transmit('0' + (i % 10));
+	usart_transmit('0' + (i % 10));
 }
 
 
@@ -132,9 +140,29 @@ void usart_send_string(char * s)
 {
 	while(*s)
 	{
-		USART_Transmit(*s);
+		usart_transmit(*s);
 		s ++;
 	}
+}
+
+// Send command over Xbee
+void usart_send_packet(char * command, char* param1, char* param2)
+{
+	usart_transmit('\n');
+	usart_send_string(command);
+	usart_transmit(' ');
+	usart_send_string(BALL_ID_STR);
+	if (param1)
+	{
+		usart_transmit(' ');
+		usart_send_string(param1);
+	}
+	if (param2)
+	{
+		usart_transmit(' ');
+		usart_send_string(param2);
+	}
+	usart_transmit('\n');
 }
 
 
@@ -206,7 +234,7 @@ inline bool is_in_free_fall()
 			z < __report_movement_z - FIRST_MOVEMENT_TRESHOLD)
 		{
 			__report_movement = false;
-			usart_send_string("MOVED\r\n");
+			usart_send_packet("MOVED", NULL, NULL);
 		}
 
 
@@ -238,20 +266,23 @@ void leave_hand()
 	__free_fall_duration = 0;
 
 	// USART Feedback
-	usart_send_string("THROWN\r\n");
+	usart_send_packet("THROWN", NULL, NULL);
 
 	// Program callback
 	__leave_hand_callback();
 }
 void enter_hand()
 {
+	char buffer[8];
+	snprintf(buffer, 8, "%u", __free_fall_duration);
+
 	// Any decent flight should take more than 60 counts.
 	// Ignore others. (Probably some noise from holding the balls
 	// in your hand.)
 	if (__free_fall_duration > 10)
 	{
 		// USART Feedback
-		usart_send_string("CAUGHT\r\n");
+		usart_send_packet("CAUGHT", buffer, NULL);
 
 		// Remember duration of flight.
 		__last_free_fall_duration = __free_fall_duration;
@@ -262,8 +293,8 @@ void enter_hand()
 	}
 	else
 	{
-		// USART Feedback
-		usart_send_string("CAUGHT*\r\n");
+		// USART Feedback (maybe we should disable this packets, to much polution in the air...)
+		usart_send_packet("CAUGHT*", buffer, NULL);
 
 		// Program callback
 		__enter_hand_callback(false);
@@ -601,55 +632,55 @@ void (*program_pointers [])(char*) = {
 
 void process_command(char* action, char* ball, char* input_param, char* input_param2)
 {
-	// TODO: for now, we address all balls, but the 'ball' parameter is meant
-	// to filter on address
-
 	int i;
 
-	// RUN: Run program
-	if (strcmp(action, "RUN") == 0)
+	if (strcmp(ball, "0") == 0 || strcmp(ball, BALL_ID_STR) == 0)
 	{
-		for (i = 0; i < PROGRAM_COUNT; i ++)
-			if (strcmp(input_param, program_names[i]) == 0)
-				program_pointers[i](input_param2);
-	}
-
-	// REPORT_MOVE: send feedback on the first, next movement 
-	else if (strcmp(action, "REPORT_MOVE") == 0)
-	{
-		__report_movement = false; // mutex
-		__report_movement_x = get_x_accelero();
-		__report_movement_y = get_y_accelero();
-		__report_movement_z = get_z_accelero();
-		__report_movement = true;
-	}
-
-	// PING: answer with PONG
-	else if (strcmp(action, "PING") == 0)
-	{
-		usart_send_string("PONG\r\n");
-	}
-
-	// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
-	else if (strcmp(action, "IDENTIFY") == 0)
-	{
-		// Disable all interrupts
-		cli();
-
-		// TODO: read current led intensity
-
-		for (i = 0; i < 10; i ++)
+		// RUN: Run program
+		if (strcmp(action, "RUN") == 0)
 		{
-			all_leds_on();
-			_delay_ms(50);
-			all_leds_off();
-			_delay_ms(50);
+			for (i = 0; i < PROGRAM_COUNT; i ++)
+				if (strcmp(input_param, program_names[i]) == 0)
+					program_pointers[i](input_param2);
 		}
 
-		// TODO: restore current led intensity
+		// REPORT_MOVE: send feedback on the first, next movement 
+		else if (strcmp(action, "REPORT_MOVE") == 0)
+		{
+			__report_movement = false; // mutex
+			__report_movement_x = get_x_accelero();
+			__report_movement_y = get_y_accelero();
+			__report_movement_z = get_z_accelero();
+			__report_movement = true;
+		}
 
-		// Enable all interrupts again
-		cli();
+		// PING: answer with PONG
+		else if (strcmp(action, "PING") == 0)
+		{
+			usart_send_packet("PONG", NULL, NULL);
+		}
+
+		// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
+		else if (strcmp(action, "IDENTIFY") == 0)
+		{
+			// Disable all interrupts
+			cli();
+
+			// TODO: read current led intensity
+
+			for (i = 0; i < 10; i ++)
+			{
+				all_leds_on();
+				_delay_ms(50);
+				all_leds_off();
+				_delay_ms(50);
+			}
+
+			// TODO: restore current led intensity
+
+			// Enable all interrupts again
+			sei();
+		}
 	}
 }
 
@@ -748,6 +779,9 @@ int main(void)
 	// Initialise usart
 	usart_init(MYUBRR);
 
+	// Send booting packet
+	usart_send_packet("BOOTING", NULL, NULL);
+
 	// Set up PWM
 
 	// Timer 1 (16bit)
@@ -795,6 +829,7 @@ int main(void)
 	green_led_on();
 	_delay_ms(800);
 
+
 	// Main program loop
 
 	pr_alternate_install("");
@@ -802,13 +837,15 @@ int main(void)
 //	pr_interpolate_install();
 //	pr_rain_install();
 
+	// Send booted packet
+	usart_send_packet("BOOTED", NULL, NULL);
 
 	// Main loop
 	while (1)
 	{
 		// Parse incoming data
-		while (USART_Receive_ready())
-			parse_input_char(USART_Receive());
+		while (usart_receive_ready())
+			parse_input_char(usart_receive());
 
 		// Juggle ball program loop
 		if (is_in_free_fall())

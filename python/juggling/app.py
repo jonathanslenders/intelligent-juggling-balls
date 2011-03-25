@@ -43,7 +43,7 @@ class XbeeInterface(Thread):
         self._engine = engine
         
         # Initialize USART interface
-        self._interface = serial.Serial('/dev/ttyUSB1', baudrate=9600, timeout=2)
+        self._interface = serial.Serial('/dev/ttyUSB2', baudrate=9600, timeout=2)
 
     def stop(self):
         self._run = False
@@ -75,6 +75,30 @@ class XbeeInterface(Thread):
         self._interface.write("\r\n%s %s %s %s\r\n" % (packet.action, packet.ball, packet.param, packet.param2))
         
 
+class FileLogger(object):
+    """
+    Log all events in a debug file.
+    """
+    def __init__(self, engine):
+        engine.add_packet_received_handler(self._packet_received)
+        engine.add_packet_sent_handler(self._packet_sent)
+        engine.add_print_line_handler(self._print_line)
+        self._f = open('debug.out', 'a')
+        self._f.write('\n-------------------\n')
+
+    def _print_line(self, line):
+        self._f.write(line + '\n')
+        self._f.flush()
+
+    def _packet_received(self, packet):
+        line = '[IN]  %s %s %s %s' % (packet.action, packet.ball, packet.param, packet.param2)
+        self._print_line(line)
+
+    def _packet_sent(self, packet):
+        line = '[OUT] %s %s %s %s' % (packet.action, packet.ball, packet.param, packet.param2)
+        self._print_line(line)
+            
+
 # ========================[ Core ]================
 
 
@@ -100,10 +124,14 @@ class Engine(object):
         # Callbacks
         self._packet_received_handlers = []
         self._packet_sent_handlers = []
+        self._print_line_handlers = []
 
         # Initialize Xbee interface
         self.xbee_interface = XbeeInterface(self)
         self.xbee_interface.start()
+
+        # Initialize file logger
+        self.file_logger = FileLogger(self)
 
         # Initialize sound
         pygame.mixer.init(22050, -16, 2, 1024)
@@ -116,6 +144,9 @@ class Engine(object):
 
     def add_packet_sent_handler(self, handler):
         self._packet_sent_handlers.append(handler)
+
+    def add_print_line_handler(self, handler):
+        self._print_line_handlers.append(handler)
 
     def packet_received(self, packet):
         # Update ball states
@@ -141,6 +172,10 @@ class Engine(object):
         for h in self._packet_sent_handlers:
             h(packet)
 
+    def print_line(self, line):
+        for h in self._print_line_handlers:
+            h(line)
+        
 
 # =================[ Windows ]================
 
@@ -179,19 +214,20 @@ class SerialWindow(object):
         self._index = 0
 
         self.lines = [ '' for x in range(10) ]
-        engine.add_packet_received_handler(self.packet_received)
-        engine.add_packet_sent_handler(self.packet_sent)
+        engine.add_packet_received_handler(self._packet_received)
+        engine.add_packet_sent_handler(self._packet_sent)
+        engine.add_print_line_handler(self._print_line)
         self.paint()
 
-    def packet_received(self, packet):
-        line = 'IN %s %s %s %s' % (packet.action, packet.ball, packet.param, packet.param2)
-        self.print_line(line)
+    def _packet_received(self, packet):
+        line = '[IN]  %s %s %s %s' % (packet.action, packet.ball, packet.param, packet.param2)
+        self._print_line(line)
 
-    def packet_sent(self, packet):
-        line = 'OUT %s %s %s %s' % (packet.action, packet.ball, packet.param, packet.param2)
-        self.print_line(line)
+    def _packet_sent(self, packet):
+        line = '[OUT] %s %s %s %s' % (packet.action, packet.ball, packet.param, packet.param2)
+        self._print_line(line)
 
-    def print_line(self, line):
+    def _print_line(self, line):
         self._index += 1
         self.lines = self.lines[1:] + [ '%s : %s' % (self._index, line) ]
         self.paint()
@@ -223,6 +259,7 @@ class ProgramWindow(object):
 
         self.scr.refresh()
 
+
 # =================[ Main app ]================
 
 class App(object):
@@ -246,10 +283,6 @@ class App(object):
         self.program_window = ProgramWindow(program_win, self.programs)
 
         self.refresh()
-
-    def _xbee_data_print(self, line):
-        self.serial_window.print_line(line)
-    write = _xbee_data_print
 
     def refresh(self):
         self.scr.refresh()
@@ -280,7 +313,7 @@ class App(object):
         while True:
             c = self.scr.getch()
 
-            self.write('char ' + str(c))
+            self.engine.print_line('char ' + str(c))
 
             if c == ord('q'):
                 self.exit()
@@ -295,11 +328,23 @@ class App(object):
 
 
 if __name__ == '__main__':
+    # Since version 5.4, the ncurses library decides how to interpret non-ASCII data
+    # using the nl_langinfo function. That means that you have to call
+    # locale.setlocale() in the application and encode Unicode strings using one of
+    # the system's available encodings. This example uses the system's default
+    # encoding:
+    import locale
+    locale.setlocale(locale.LC_ALL, '')
+    code = locale.getpreferredencoding()
+
+    # Create juggling engine
     engine = Engine()
+
+    # Start main application
     def main(scr):
         a = App(scr, engine)
         a.handle_input()
 
-    print curses.wrapper(main)
+    curses.wrapper(main)
     print 'Exited'
     import traceback; traceback.print_exc()
