@@ -69,7 +69,7 @@ volatile bool __in_free_fall = false;
 // last X samples and when we are not in free fall.
 #define ON_TABLE_TRESHOLD 2 // Required minimal diffence to be considered a movement.
 
-volatile int32_t __on_table_counter = 0; // Counter 0..1000 (For storing only 1/1000 samples.)
+volatile int32_t __on_table_counter = 0; // Counter 0..x for counting how long the ball already is on the table.
 volatile bool __is_on_table = false;
 
 volatile unsigned char __last_measurement_x = 0;
@@ -261,7 +261,7 @@ inline bool adc_main_loop()
 	else
 	{
 		// We are moving. Need to have X times on table.
-		if (__on_table_counter > 1000)
+		if (__on_table_counter > 2000)
 		{
 			usart_send_packet("ON_TABLE", NULL, NULL);
 			__is_on_table = true;
