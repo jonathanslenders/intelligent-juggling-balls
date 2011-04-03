@@ -43,7 +43,7 @@ class XbeeInterface(Thread):
         self._engine = engine
         
         # Initialize USART interface
-        self._interface = serial.Serial('/dev/ttyUSB2', baudrate=9600, timeout=2)
+        self._interface = serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=2)
 
     def stop(self):
         self._run = False
@@ -80,11 +80,12 @@ class FileLogger(object):
     Log all events in a debug file.
     """
     def __init__(self, engine):
+        self._f = open('debug.out', 'a')
+        self._f.write('\n-------------------\n')
+
         engine.add_packet_received_handler(self._packet_received)
         engine.add_packet_sent_handler(self._packet_sent)
         engine.add_print_line_handler(self._print_line)
-        self._f = open('debug.out', 'a')
-        self._f.write('\n-------------------\n')
 
     def _print_line(self, line):
         self._f.write(line + '\n')

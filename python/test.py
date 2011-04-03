@@ -4,9 +4,6 @@ import pygame
 import time
 import colorsys
 
-# Initialize USART interface
-ball = serial.Serial('/dev/ttyUSB0', baudrate=9600)
-
 last_throw = time.time()
 
 
@@ -25,6 +22,11 @@ pygame.mixer.init(22050, -16, 2, 1024)
 
 do = pygame.mixer.Sound("sounds/do.wav")
 caught_sound = pygame.mixer.Sound("sounds/catch.wav")
+
+
+# Initialize USART interface
+ball = serial.Serial('/dev/ttyUSB2', baudrate=9600)
+
 
 def int_to_hex_str(i):
     if (i < 16):
@@ -99,7 +101,7 @@ while True:
     line = ball.readline()
 
     print line
-    if 'CAUGHT*' in line:
+    if 'CAUGHT' in line:
         do.stop()
         caught_sound.stop()
 
@@ -110,5 +112,6 @@ while True:
         caught_sound.set_volume(duration)
 
     if 'THROWN' in line:
+        print 'play'
         do.play()
         last_throw = time.time()
