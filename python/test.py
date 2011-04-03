@@ -5,13 +5,13 @@ import time
 import colorsys
 
 # Initialize USART interface
-ball = serial.Serial('/dev/ttyUSB1', baudrate=9600)
+ball = serial.Serial('/dev/ttyUSB0', baudrate=9600)
 
 last_throw = time.time()
 
 
 
-if True:
+if False:
     ball.write("\nRUN 0 rain\n")
     while True:
         print ball.readline()
@@ -55,7 +55,7 @@ if False:
 
 ### Identify test
 
-if True:
+if False:
     while True:
         print 'identify'
         ball.write("\nIDENTIFY\n")
@@ -80,7 +80,7 @@ if False:
 
 ### Color test ###
 
-while True:
+while False:
     for i in range (0, 255):
         r,g,b = colorsys.hsv_to_rgb(i / 255., 1, .3)
         command = "RUN 0 fixed %s%s%s\n" % (
@@ -99,8 +99,8 @@ while True:
     line = ball.readline()
 
     print line
-    if 'CAUGHT' in line:
-#        do.stop()
+    if 'CAUGHT*' in line:
+        do.stop()
         caught_sound.stop()
 
         # Volume depends on throw duration
@@ -110,5 +110,5 @@ while True:
         caught_sound.set_volume(duration)
 
     if 'THROWN' in line:
-#        do.play()
+        do.play()
         last_throw = time.time()

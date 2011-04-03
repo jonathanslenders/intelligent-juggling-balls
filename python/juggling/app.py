@@ -43,7 +43,7 @@ class XbeeInterface(Thread):
         self._engine = engine
         
         # Initialize USART interface
-        self._interface = serial.Serial('/dev/ttyUSB2', baudrate=9600, timeout=2)
+        self._interface = serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=2)
 
     def stop(self):
         self._run = False
@@ -109,6 +109,7 @@ class BallState(object):
     def __init__(self):
         self.voltage = 0.0
         self.in_free_fall = False
+        self.on_table = False
         self.throws = 0
         self.catches = 0
         self.current_program = 'default'
@@ -149,16 +150,22 @@ class Engine(object):
         self._print_line_handlers.append(handler)
 
     def packet_received(self, packet):
-        # Update ball states
-        if packet.action in ('CAUGHT', 'CAUGHT*'):
-            if packet.ball > 0 and packet.ball <= len(self.states):
+        if packet.ball > 0 and packet.ball <= len(self.states):
+            # Update ball states
+            if packet.action in ('CAUGHT', 'CAUGHT*'):
                 self.states[packet.ball - 1].catches += 1
                 self.states[packet.ball - 1].in_free_fall = False
 
-        if packet.action in ('THROWN',):
-            if packet.ball > 0 and packet.ball <= len(self.states):
+            if packet.action in ('THROWN',):
                 self.states[packet.ball - 1].throws += 1
                 self.states[packet.ball - 1].in_free_fall = True
+
+            # On table/moving
+            if packet.action in ('ON_TABLE'):
+                self.states[packet.ball - 1].on_table = True
+
+            if packet.action in ('MOVING'):
+                self.states[packet.ball - 1].on_table = False
 
         # Call handlers
         for h in self._packet_received_handlers:
@@ -194,13 +201,14 @@ class JuggleBallStatusWindow(object):
         self.scr.clear()
         self.scr.border()
         self.scr.addstr(0, 4, "Juggling balls", curses.A_STANDOUT)
-        self.scr.addstr(1, 1, "Ball | Power | In air | Throws | Catches | Program", curses.A_UNDERLINE)
+        self.scr.addstr(1, 1, "Ball | Power | In air | On table | Throws | Catches | Program", curses.A_UNDERLINE)
         for i in range(len(self.engine.states)):
             state = self.engine.states[i]
-            self.scr.addstr(2+i, 1, "%3s  %5sv     %-3s     %5s     %5s     %s" %
+            self.scr.addstr(2+i, 1, "%3s  %5sv     %-3s     %-3s        %5s     %5s     %s" %
                         (i+1,
                         state.voltage,
                         'Yes' if state.in_free_fall else 'No ',
+                        'Yes' if state.on_table else 'No ',
                         state.throws,
                         state.catches,
                         state.current_program))
@@ -271,7 +279,7 @@ class App(object):
 
         # Create windows
         #status_win = curses.newwin(20, 40, 1, 1)
-        status_win = self.scr.subwin(15, 60, 0, 0)
+        status_win = self.scr.subwin(15, 70, 0, 0)
         self.status_window = JuggleBallStatusWindow(status_win, self.engine)
 
         serial_win = self.scr.subwin(13, 60, 16, 0)

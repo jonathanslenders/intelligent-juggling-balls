@@ -48,22 +48,33 @@ void delay_ms(unsigned int ms)
 #define BAUD 9600
 #define MYUBRR F_CPU/16/BAUD-1
 
+// ===========================[ Globals ]===================================
 
-// Global variables
+#define HISTORY_SIZE 10 // Keep 10 samples in  history
+#define HISTORY_SKIP 100 // Store 1, every 100 samples
+volatile unsigned char __x_history[HISTORY_SIZE];
+volatile unsigned char __y_history[HISTORY_SIZE];
+volatile unsigned char __z_history[HISTORY_SIZE];
+volatile int __history_index = 0; // Position where the following entry should be saved.
+volatile int __history_counter = 0; // Count from 0 to HISTORY_SKIP
+
+// Free fall
 volatile unsigned int __last_free_fall_duration = 0;
 volatile unsigned int __free_fall_duration = 0;
 volatile unsigned int __time_since_last_catch = 0;
 volatile bool __in_free_fall = false;
 
-// Report first movement variables
-	// When this boolean is True, and the x,y or z value
-	// differs more than FIRST_MOVEMENT_TRESHOLD from
-	// the saved value. Report as changed.
-volatile bool __report_movement = false;
-volatile unsigned char __report_movement_x = 0;
-volatile unsigned char __report_movement_y = 0;
-volatile unsigned char __report_movement_z = 0;
-#define FIRST_MOVEMENT_TRESHOLD 3
+// Moving / on table. We consider the ball to be still on a table when there
+// has not been measured any significant difference in accelleration during the
+// last X samples and when we are not in free fall.
+#define ON_TABLE_TRESHOLD 2 // Required minimal diffence to be considered a movement.
+
+volatile int32_t __on_table_counter = 0; // Counter 0..1000 (For storing only 1/1000 samples.)
+volatile bool __is_on_table = false;
+
+volatile unsigned char __last_measurement_x = 0;
+volatile unsigned char __last_measurement_y = 0;
+volatile unsigned char __last_measurement_z = 0;
 
 // Function pointers to the current light-program.
 // Every effect should implement these callbacks.
@@ -197,7 +208,7 @@ inline unsigned char get_x_accelero()
 	return do_adc_conversion();
 }
 
-inline bool is_in_free_fall()
+inline bool adc_main_loop()
 {
 	// z-axis is in free fall, when it's value floats around 120
 	// y-axis is in free fall, when it's value floats around 128
@@ -219,24 +230,43 @@ inline bool is_in_free_fall()
 	unsigned char y = get_y_accelero();
 	unsigned char x = get_x_accelero();
 
-	// Do we need to report a movement?
-	if (__report_movement)
-		if (
-					// NOTE: overflow may be possible but should be
-					//       exceptional.
-			x > __report_movement_x + FIRST_MOVEMENT_TRESHOLD ||
-			x < __report_movement_x - FIRST_MOVEMENT_TRESHOLD ||
+	// Do we have a significant difference compared to two history windows ago.
+	int index = (__history_index + HISTORY_SIZE - 2) % HISTORY_SIZE;
+	bool on_table = (
+				// TODO NOTE: overflow may be possible but should be exceptional.
+		x < __x_history[index] + ON_TABLE_TRESHOLD &&
+		x > __x_history[index] - ON_TABLE_TRESHOLD &&
 
-			y > __report_movement_y + FIRST_MOVEMENT_TRESHOLD ||
-			y < __report_movement_y - FIRST_MOVEMENT_TRESHOLD ||
+		y < __y_history[index] + ON_TABLE_TRESHOLD &&
+		y > __y_history[index] - ON_TABLE_TRESHOLD &&
 
-			z > __report_movement_z + FIRST_MOVEMENT_TRESHOLD ||
-			z < __report_movement_z - FIRST_MOVEMENT_TRESHOLD)
+		z < __z_history[index] + ON_TABLE_TRESHOLD &&
+		z > __z_history[index] - ON_TABLE_TRESHOLD);
+
+	if (on_table)
+		__on_table_counter ++;
+	else
+		__on_table_counter = 0;
+
+	if (__is_on_table)
+	{
+		// We are on the table. Any significant movement will cause the ball
+		// not to be considered on the table.
+		if (! on_table)
 		{
-			__report_movement = false;
-			usart_send_packet("MOVED", NULL, NULL);
+			usart_send_packet("MOVING", NULL, NULL);
+			__is_on_table = false;
 		}
-
+	}
+	else
+	{
+		// We are moving. Need to have X times on table.
+		if (__on_table_counter > 1000)
+		{
+			usart_send_packet("ON_TABLE", NULL, NULL);
+			__is_on_table = true;
+		}
+	}
 
 	// TODO: calculate impact. (pytagoras distance to center.)
 	//int delta_x = (x > X_CENTER ? x - X_CENTER : X_CENTER - x);
@@ -249,12 +279,47 @@ inline bool is_in_free_fall()
 	//return (delta_x < PRECISION && delta_y < PRECISION & delta_z < PRECISION);
 
 
+	// Save last measurement
+	__last_measurement_x = x;
+	__last_measurement_y = y;
+	__last_measurement_z = z;
 
-	// Return True when all valus are within the boundaries
-	return (
+	// Save history
+	if (__history_counter == HISTORY_SKIP)
+	{
+		__x_history[__history_index] = x;
+		__y_history[__history_index] = y;
+		__z_history[__history_index] = z;
+
+		// Reset counter, and go to next index;
+		__history_index = (__history_index + 1) % HISTORY_SIZE;
+		__history_counter = 0;
+	}
+	else
+		__history_counter ++;
+
+	// In free fall? (All values within boundaries.)
+	bool in_free_fall = (
 			z > Z_MIN && z < Z_MAX &&
 			y > Y_MIN && y < Y_MAX &&
 			x > X_MIN && x < X_MAX);
+
+	if (in_free_fall)
+	{
+		if (! __in_free_fall)
+		{
+			__in_free_fall = true;
+			leave_hand();
+		}
+	}
+	else
+	{
+		if (__in_free_fall)
+		{
+			__in_free_fall = false;
+			enter_hand();
+		}
+	}
 }
 
 
@@ -644,16 +709,6 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 					program_pointers[i](input_param2);
 		}
 
-		// REPORT_MOVE: send feedback on the first, next movement 
-		else if (strcmp(action, "REPORT_MOVE") == 0)
-		{
-			__report_movement = false; // mutex
-			__report_movement_x = get_x_accelero();
-			__report_movement_y = get_y_accelero();
-			__report_movement_z = get_z_accelero();
-			__report_movement = true;
-		}
-
 		// PING: answer with PONG
 		else if (strcmp(action, "PING") == 0)
 		{
@@ -848,22 +903,7 @@ int main(void)
 			parse_input_char(usart_receive());
 
 		// Juggle ball program loop
-		if (is_in_free_fall())
-		{
-			if (! __in_free_fall)
-			{
-				__in_free_fall = true;
-				leave_hand();
-			}
-		}
-		else
-		{
-			if (__in_free_fall)
-			{
-				__in_free_fall = false;
-				enter_hand();
-			}
-		}
+		adc_main_loop();
 	}
 
 	// Test code: dimmer example loop
