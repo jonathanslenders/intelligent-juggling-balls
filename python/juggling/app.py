@@ -43,7 +43,7 @@ class XbeeInterface(Thread):
         self._engine = engine
         
         # Initialize USART interface
-        self._interface = serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=2)
+        self._interface = serial.Serial('/dev/ttyUSB2', baudrate=9600, timeout=2)
 
     def stop(self):
         self._run = False
@@ -324,6 +324,7 @@ class App(object):
             self.engine.print_line('char ' + str(c))
 
             if c == ord('q'):
+                self.engine.print_line('*** Quitting')
                 self.exit()
                 return
 

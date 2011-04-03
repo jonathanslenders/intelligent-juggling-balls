@@ -150,6 +150,13 @@ class IdentifyProgram(Program):
         self.engine.send_packet('IDENTIFY')
 
 
+class TableTestProgram(Program):
+    """ Other color on table """
+    def activate(self):
+        Program.activate(self)
+        self.engine.send_packet('Run', 0, 'tabletest')
+
+
 ALL_PROGRAMS = (
     ExampleProgram,
     HueTestProgram,
@@ -157,5 +164,6 @@ ALL_PROGRAMS = (
     FixedColorProgram,
     PingProgram,
     IdentifyProgram,
+    TableTestProgram,
     )
 

@@ -311,6 +311,11 @@ inline bool adc_main_loop()
 			__in_free_fall = true;
 			leave_hand();
 		}
+
+		// Free fall doesn't count as being on the table. Even if this
+		// is measured as no change in applied force. Reset counter to avoid
+		// on-table to be triggered.
+		__on_table_counter = 0;
 	}
 	else
 	{
@@ -673,14 +678,46 @@ void pr_rain_install(char* param)
 }
 
 
+// -4- table test
+
+void pr_table_test_tick_callback()
+{
+	if (__is_on_table)
+	{
+		blue_led_off();
+		green_led_off();
+		red_led_on();
+	}
+	else if (__in_free_fall)
+	{
+		blue_led_on();
+		green_led_off();
+		red_led_off();
+	}
+	else
+	{
+		blue_led_off();
+		green_led_on();
+		red_led_off();
+	}
+}
+
+void pr_table_test_install(char* param)
+{
+	__enter_hand_callback = &dummy_callback;
+	__leave_hand_callback = &dummy_callback;
+	__timer_tick_callback = &pr_table_test_tick_callback;
+}
+
 // List of installed programs
 
-#define PROGRAM_COUNT 4
+#define PROGRAM_COUNT 5
 const char* program_names[] = {
 	"fixed",
 	"alternate",
 	"rain",
 	"interpolate",
+	"tabletest",
  };
 
 void (*program_pointers [])(char*) = {
@@ -688,6 +725,7 @@ void (*program_pointers [])(char*) = {
 	&pr_alternate_install,
 	&pr_rain_install,
 	&pr_interpolate_install,
+	&pr_table_test_install,
 };
 
 
@@ -892,6 +930,11 @@ int main(void)
 //	pr_interpolate_install();
 //	pr_rain_install();
 
+	// Take 1000 samples for filling in a little history.
+	int i;
+	for(i = 0; i < 1000; i ++)
+		adc_main_loop();
+
 	// Send booted packet
 	usart_send_packet("BOOTED", NULL, NULL);
 
@@ -910,7 +953,6 @@ int main(void)
 	all_leds_off();
 	while(1)
 	{
-		int i;
 		//for (i = 10; i < 256; i ++)
 		for (i = 0; i < 16; i ++)
 		{
