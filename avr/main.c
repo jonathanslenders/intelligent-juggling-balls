@@ -51,7 +51,7 @@ void delay_ms(unsigned int ms)
 // ===========================[ Globals ]===================================
 
 #define HISTORY_SIZE 10 // Keep 10 samples in  history
-#define HISTORY_SKIP 100 // Store 1, every 100 samples
+#define HISTORY_SKIP 50 // Store 1, every 100 samples
 volatile unsigned char __x_history[HISTORY_SIZE];
 volatile unsigned char __y_history[HISTORY_SIZE];
 volatile unsigned char __z_history[HISTORY_SIZE];
@@ -84,6 +84,12 @@ volatile void (*__leave_hand_callback)(void) = &dummy_callback;
 volatile void (*__timer_tick_callback)(void) = &dummy_callback;
 	// The enter-callback gets a boolean parameter: it's true when we can
 	// consider the throw high enough for not being noise.
+
+
+// Accellerometer center values (measured in free fall.)
+#define Z_CENTER 120
+#define Y_CENTER 128
+#define X_CENTER 128
 
 
 // ===========================[ USART ]===================================
@@ -213,9 +219,6 @@ inline bool adc_main_loop()
 	// z-axis is in free fall, when it's value floats around 120
 	// y-axis is in free fall, when it's value floats around 128
 	// x-axis is in free fall, when it's value floats around 128
-	#define Z_CENTER 120
-	#define Y_CENTER 128
-	#define X_CENTER 128
 	#define PRECISION 12
 
 	#define Z_MIN (Z_CENTER - PRECISION)
@@ -231,7 +234,7 @@ inline bool adc_main_loop()
 	unsigned char x = get_x_accelero();
 
 	// Do we have a significant difference compared to two history windows ago.
-	int index = (__history_index + HISTORY_SIZE - 2) % HISTORY_SIZE;
+	int index = (__history_index + HISTORY_SIZE - 4) % HISTORY_SIZE;
 	bool on_table = (
 				// TODO NOTE: overflow may be possible but should be exceptional.
 		x < __x_history[index] + ON_TABLE_TRESHOLD &&
@@ -330,17 +333,42 @@ inline bool adc_main_loop()
 
 // ===========================[ Event handlers ]===================================
 
+#define DISTANCE(a, b) ( (a < b) ? (b - a) : (a - b) )
+
 void leave_hand()
 {
 	// Reset timer
 	__free_fall_duration = 0;
 
+	// Calculate leave 'force'.
+	uint32_t force = 0;
+
+	int index = (__history_index + HISTORY_SIZE - 1) % HISTORY_SIZE;
+	int index2 = (__history_index + HISTORY_SIZE - 2) % HISTORY_SIZE;
+
+	force += DISTANCE(__x_history[index], X_CENTER);
+	force += DISTANCE(__y_history[index], Y_CENTER);
+	force += DISTANCE(__z_history[index], Z_CENTER);
+
+	force += DISTANCE(__x_history[index2], X_CENTER);
+	force += DISTANCE(__y_history[index2], Y_CENTER);
+	force += DISTANCE(__z_history[index2], Z_CENTER);
+
+	force += DISTANCE(__last_measurement_x, X_CENTER);
+	force += DISTANCE(__last_measurement_y, Y_CENTER);
+	force += DISTANCE(__last_measurement_z, Z_CENTER);
+
+	char buffer[32];
+	snprintf(buffer, 8, "%u", force);
+
 	// USART Feedback
-	usart_send_packet("THROWN", NULL, NULL);
+	usart_send_packet("THROWN", buffer, NULL);
+
 
 	// Program callback
 	__leave_hand_callback();
 }
+
 void enter_hand()
 {
 	char buffer[8];

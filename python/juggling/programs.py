@@ -142,6 +142,9 @@ class GuitarProgram(Program):
             ]
         self.play_index = 0
 
+        self.tune_sound_of_music_doremi = [ 'c', 'd', 'e', 'c', 'e', 'c', 'e', 'd','e','f','f','d','e','f',
+                    'e', 'f','g','f','g','f','g', 'f','g','a','a','f','g','a' ]
+
         engine.add_packet_received_handler(self.packet_received)
 
         pygame.mixer.set_num_channels(len(self.notes.keys()))

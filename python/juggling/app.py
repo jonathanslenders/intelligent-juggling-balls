@@ -2,13 +2,14 @@ import curses
 import time
 import serial
 import pygame
+import sys
 
 from juggling.sounds import SoundEffectManager
 from juggling import settings
 from juggling import programs
 from juggling.programs import ExampleProgram
 
-from threading import Thread
+from threading import Thread, Lock
 
         #curses.reset_shell_mode()
         #import pdb; pdb.set_trace()
@@ -43,7 +44,7 @@ class XbeeInterface(Thread):
         self._engine = engine
         
         # Initialize USART interface
-        self._interface = serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=2)
+        self._interface = serial.Serial('/dev/ttyUSB2', baudrate=9600, timeout=2)
 
     def stop(self):
         self._run = False
@@ -120,6 +121,8 @@ class Engine(object):
     Core, where the packets come in and the event handlers are called.
     """
     def __init__(self):
+        # stdout lock
+        self._stdout_lock = Lock()
         # State variables
         self.states = [ BallState() for x in range(0,10) ]
 
@@ -181,9 +184,31 @@ class Engine(object):
             h(packet)
 
     def print_line(self, line):
+        self._stdout_lock.acquire(True)
         for h in self._print_line_handlers:
             h(line)
+        self._stdout_lock.release()
         
+    def stop(self):
+        self.deactivate_all_programs()
+
+        # Quit Xbee interface
+        self.xbee_interface.stop()
+        self.xbee_interface.join()
+
+    def deactivate_all_programs(self):
+        # Deactivate possible active programs
+        for p in self.programs:
+            if p.is_active:
+                p.deactivate()
+
+    def activate_program(self, index):
+        self.deactivate_all_programs()
+
+        # Activate new program
+        if index < len(self.programs):
+            self.programs[index].activate()
+
 
 # =================[ Windows ]================
 
@@ -239,7 +264,8 @@ class SerialWindow(object):
     def _print_line(self, line):
         self._index += 1
         self.lines = self.lines[1:] + [ '%s : %s' % (self._index, line) ]
-        self.paint()
+        try: self.paint()
+        except: pass
 
     def paint(self):
         self.scr.clear()
@@ -271,12 +297,11 @@ class ProgramWindow(object):
 
 # =================[ Main app ]================
 
-class App(object):
+class GUI(object):
     def __init__(self, scr, engine):
         self.scr = scr
         self.engine = engine
         self.programs = engine.programs
-        self.xbee_interface = engine.xbee_interface
 
         # Create windows
         #status_win = curses.newwin(20, 40, 1, 1)
@@ -291,49 +316,40 @@ class App(object):
         program_win.border()
         self.program_window = ProgramWindow(program_win, self.programs)
 
-        self.refresh()
-
-    def refresh(self):
         self.scr.refresh()
-
-    def exit(self):
-        self.deactivate_all_programs()
-
-        # Quit Xbee interface
-        self.xbee_interface.stop()
-        self.xbee_interface.join()
-
-    def deactivate_all_programs(self):
-        # Deactivate possible active programs
-        for p in self.engine.programs:
-            if p.is_active:
-                p.deactivate()
-
-    def activate_program(self, index):
-        self.deactivate_all_programs()
-
-        # Activate new program
-        if index < len(self.engine.programs):
-            self.engine.programs[index].activate()
-
-        self.program_window.paint()
 
     def handle_input(self):
         while True:
             c = self.scr.getch()
 
-            self.engine.print_line('char ' + str(c))
+            #self.engine.print_line('char ' + str(c))
 
             if c == ord('q'):
                 self.engine.print_line('*** Quitting')
-                self.exit()
                 return
 
             elif c >= ord('1') and c <= ord('9'):
-                self.activate_program(c - ord('0') - 1)
+                self.engine.activate_program(c - ord('0') - 1)
+                try: self.program_window.paint()
+                except: pass
 
             elif c == 9: # Tab
                 pass
+
+            elif c == curses.KEY_RESIZE:
+                max_y, max_x = self.scr.getmaxyx()
+                if max_y < 40 or max_x < 80:
+                    self.scr.addstr(1,1, 'window too small...')
+
+                try:
+                    self.program_window.paint()
+                    self.serial_window.paint()
+                    self.status_window.paint()
+                except: pass
+
+                #self.scr.refresh()
+                # TODO: resize windows
+                #return True# Exit GUI and build again
 
 
 
@@ -350,11 +366,15 @@ if __name__ == '__main__':
     # Create juggling engine
     engine = Engine()
 
-    # Start main application
+    # Main application
     def main(scr):
-        a = App(scr, engine)
+        a = GUI(scr, engine)
         a.handle_input()
 
     curses.wrapper(main)
+
+    print 'Waiting for threads...'
+    sys.stdout.flush()
+    engine.stop()
     print 'Exited'
     import traceback; traceback.print_exc()

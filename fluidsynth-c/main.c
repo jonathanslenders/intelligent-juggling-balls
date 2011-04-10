@@ -7,7 +7,21 @@
 #include <errno.h> /* Error number definitions */
 #include <termios.h> /* POSIX terminal control definitions */
 
+
+#include <fluidsynth.h> /* For the MIDI synthesizer */
+
 #define PORT_NAME "/dev/ttyUSB1"
+
+
+#define D_FLAT__Db3 49
+
+#define D_FLAT__C4 60
+#define D_FLAT__Db4 61
+#define D_FLAT__Eb4 63
+#define D_FLAT__F4 65
+#define D_FLAT__Gb4 66
+#define D_FLAT__Ab4 68
+#define D_FLAT__Bb4 70
 
 
 /* ===============================[ Globals ]============================ */
@@ -56,18 +70,88 @@ void process_packet(struct juggle_packet_t* packet)
 }
 
 
+/* ===============================[ Fluid synth ]============================ */
+
+
+fluid_settings_t* fluid_settings;
+fluid_synth_t* synth;
+fluid_audio_driver_t* adriver;
+int fluid_font_id;
+
+void init_fluidsynth()
+{
+	fluid_settings = new_fluid_settings();
+
+    /* Set the synthesizer settings, if necessary */
+    synth = new_fluid_synth(fluid_settings);
+
+	/* Initialize audio driver */
+    fluid_settings_setstr(fluid_settings, "audio.driver", "alsa");
+    adriver = new_fluid_audio_driver(fluid_settings, synth);
+
+	/* Load sound font */
+	fluid_font_id = fluid_synth_sfload(synth, "/usr/share/sounds/sf2/FluidR3_GM.sf2", 1);
+
+	/* Test sound ;) */
+	int i;
+	for (i = 0; i < 3; i ++){
+		fluid_synth_program_select(synth, 0, fluid_font_id, 0, 7);
+
+		fluid_synth_cc(synth, 0, 10, 120); /* 10=pan, between 0 and 127 */
+		fluid_synth_cc(synth, 0, 7, 90); /* 7=volume, between 0 and 127 */
+		fluid_synth_cc(synth, 0, 64, 30); /* 64=sustain */
+		//fluid_synth_cc(synth, 0, 91, 100); /* 91=reverb */
+
+		fluid_synth_noteon(synth, 1, D_FLAT__Db3, 100);
+		usleep(100 * 1000);
+		fluid_synth_noteoff(synth, 1, D_FLAT__Db3);
+		usleep(400 * 1000);
+	}
+
+}
+
+void cleanup_fluidsynth(void)
+{
+	delete_fluid_synth(synth);
+	delete_fluid_settings(fluid_settings);
+}
+
+
 /* ===============================[ Programs ]============================ */
 
 
-/* **** 1 **** */
+/* **** 1: debug **** */
 void test_app1_setup(void)
 {
-	printf("Setting up app1");
+	printf("Setting up app1\n");
 }
 void test_app1_packet_received(struct juggle_packet_t* packet)
 {
 	printf("Packet received: %s\n", packet->action);
 }
+
+
+/* *** 2: Charriots of Fire *** */
+
+void charriots_setup(void)
+{
+	printf("Setting up Charriots of Fire\n");
+}
+void charriots_packet_received(struct juggle_packet_t* packet)
+{
+	printf("Packet received: %s\n", packet->action);
+
+	//printf("action=%s\n", packet->action);
+	if (strcmp(packet->action, "CAUGHT") == 0)
+		fluid_synth_noteoff(synth, 0, D_FLAT__Db3);
+
+	else if (strcmp(packet->action, "CAUGHT*") == 0)
+		fluid_synth_noteoff(synth, 0, D_FLAT__Db3);
+
+	else if (strcmp(packet->action, "THROWN") == 0)
+		fluid_synth_noteon(synth, 0, D_FLAT__Db3, 100);
+}
+
 
 
 
@@ -89,9 +173,9 @@ struct juggle_program_t PROGRAMS[] = {
 			test_app1_packet_received,
 		},
 		{
-			"test app 2",
-			test_app1_setup,
-			test_app1_packet_received,
+			"Charriots of Fire",
+			charriots_setup,
+			charriots_packet_received,
 		}
 };
 
@@ -139,19 +223,24 @@ void  sigint_handler(int sig)
 
 int main()
 {
+	/* Initialize everything */
 	serial_port_open();
-	activate_program(& PROGRAMS[0]);
+	init_fluidsynth();
+	activate_program(& PROGRAMS[1]);
+
+	/* Signal handlers */
+	signal (SIGINT, (void*)sigint_handler);
 
 
 	/* Read from serial port */
-		#define MAX_COMMAND_LENGTH 50
-		char read_buffer[MAX_COMMAND_LENGTH+1] = { 0 };
+	#define MAX_COMMAND_LENGTH 50
+	char read_buffer[MAX_COMMAND_LENGTH+1] = { 0 };
 
+	/* Data in read loop */
 	int i;
 	while(1)
 	{
 		int count = read(serial_port, read_buffer, MAX_COMMAND_LENGTH);
-		//printf("--%i\n", count);
 
 		if (count > 0)
 		{
@@ -167,21 +256,8 @@ int main()
 		}
 		else
 		{
-			//printf("nothing\n");
+			//printf("Idle...\n");
 			sleep(0);
 		}
 	}
-
-	signal (SIGINT, (void*)sigint_handler);
-
-	while (1)
-	{
-
-		if (read(serial_port, read_buffer, MAX_COMMAND_LENGTH) > 0)
-		{
-			printf("%s\n", read_buffer);
-}	
-	}
-
-
 }
