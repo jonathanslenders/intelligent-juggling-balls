@@ -229,8 +229,24 @@ void process_packet(struct juggle_packet_t* packet)
 		}
 
 		// Send packet to active program
-		active_program->packet_received(packet);
+        if (active_program->packet_received)
+		    active_program->packet_received(packet);
 	}
+}
+
+void send_packet(char* command, int ball, char* param1, char* param2)
+{
+    char buffer[256];
+    if (! param1) param1 = "";
+    if (! param2) param2 = "";
+
+    // Show outgoing packet on console
+    snprintf(buffer, 256, "[out] %s %i %s %s\n", command, ball, param1, param2);
+    print_string("%s", buffer);
+
+    // Sent packet
+    int length = snprintf(buffer, 256, "%s %i %s %s\n", command, ball, param1, param2);
+    write(serial_port, buffer, length);
 }
 
 
@@ -294,7 +310,19 @@ void test_app1_packet_received(struct juggle_packet_t* packet)
 }
 
 
-/* *** 2: Charriots of Fire *** */
+/* *** 2: Ping *** */
+void ping_activate(void)
+{
+    send_packet("PING", 0, NULL, NULL);
+}
+
+/* *** 3: Identify *** */
+void identify_activate(void)
+{
+    send_packet("IDENTIFY", 0, NULL, NULL);
+}
+
+/* *** 4: Charriots of Fire *** */
 
 void charriots_activate(void)
 {
@@ -328,22 +356,35 @@ void activate_program(struct juggle_program_t* program)
     if (active_program && active_program->deactivate)
 	    active_program->deactivate();
 
+	print_string("Activating program %s\n", program->description);
+
     if (program->activate)
 	    program->activate();
 
-	print_string("Activating program %s\n", program->description);
 	active_program = program;
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 2
-struct juggle_program_t PROGRAMS[PROGRAMS_COUNT] = {
+#define PROGRAMS_COUNT 4
+struct juggle_program_t PROGRAMS[] = {
 		{
 			"test app 1",
 			test_app1_activate,
             NULL,
 			test_app1_packet_received,
 		},
+        {
+            "Ping",
+            ping_activate,
+            NULL,
+            NULL,
+        },
+        {
+            "Identify",
+            identify_activate,
+            NULL,
+            NULL,
+        },
 		{
 			"Charriots of Fire",
 			charriots_activate,
@@ -351,6 +392,9 @@ struct juggle_program_t PROGRAMS[PROGRAMS_COUNT] = {
 			charriots_packet_received,
 		}
 };
+
+
+
 
 /* =============================[ Serial port ]================================= */
 
@@ -490,20 +534,12 @@ void print_programs_window(void)
     for(i = 0; i < PROGRAMS_COUNT; i ++)
     {
 		char buffer[256];
-		snprintf(buffer, 256, "%3i  %s", i, PROGRAMS[i].description);
+		snprintf(buffer, 256, "%3i  %s", i+1, PROGRAMS[i].description);
 		mvwprintw(programs_window, 2+i, 1, buffer);
     }
     wrefresh(programs_window);
 }
 #endif
-
-
-void print_in_middle(WINDOW *win, char *string)
-{   
-    wcolor_set(win, 1, NULL);
-    mvwprintw(win, 3, 3, "%s", string);
-    refresh();
-}
 
 
 int main(void)
@@ -516,27 +552,31 @@ int main(void)
 	/* Signal handlers */
 	signal (SIGINT, (void*)sigint_handler);
 
-#ifdef ENABLE_CURSES
-	/* Ncurses initialization */
-	initscr();			/* Start curses mode 		*/
+	// Start data read thread
+	pthread_create(&data_read_thread, NULL, (void *) &start_data_read_thread, (void *) NULL);
 
+#ifdef ENABLE_CURSES
+	// Initialize ncurses 
+	initscr();
+
+    // Enable colors
 	if(has_colors() == FALSE)
 	{
 		endwin();
 		printf("You terminal does not support color\n");
 		exit(1);
 	}
-
-	start_color();			/* Start color 			*/
+	start_color();
 	init_pair(1, COLOR_WHITE, COLOR_MAGENTA);
-    print_string("colours counted %i", COLORS);
+    print_string("Colours counted: %i", COLORS);
 
-	raw();				/* Line buffering disabled	*/
-	keypad(stdscr, TRUE);		/* We get F1, F2 etc..		*/
-	noecho();			/* Don't echo() while we do getch */
-    curs_set(0); /* Make cursor invisible */
-	timeout(0); /* nonblocking getch */
-	//halfdelay(1); /* Nonblocking getch */
+    // Terminal options
+	raw();				        // Line buffering disabled
+	keypad(stdscr, TRUE);		// We get F1, F2 etc..
+	noecho();			        // Don't echo() while we do getch
+    curs_set(0);                // Make cursor invisible
+	timeout(0);                 // nonblocking getch
+	//halfdelay(1);             // Nonblocking getch
 
 	// Status window
 	status_window = newwin(20, 78, 1, 1);
@@ -549,10 +589,7 @@ int main(void)
     // Programs window
     programs_window = newwin(10, 60, 40, 0);
 
-	// Start data read thread
-	pthread_create(&data_read_thread, NULL, (void *) &start_data_read_thread, (void *) NULL);
-
-	/* ncurses GUI loop */
+	// Curses GUI loop
 	while(true)
 	{
 		int ch = getch();
@@ -574,10 +611,10 @@ int main(void)
 		// Update serial window
 		while(serial_queue_tail)
 		{
-			/* Scroll one line up */
+			// Scroll up
 			wscrl(serial_window, 1);
 
-			/* Print tail from queue */
+			// Print tail from serial queue
 			int y, x;
 			getmaxyx(serial_window, y, x);
 
@@ -588,6 +625,7 @@ int main(void)
 			wrefresh(serial_window);
 		}
 
+        // Refresh
         wborder(serial_window, '|', '|', ' ', ' ', ' ', ' ', ' ', ' ');
         print_programs_window();
 		print_status_window();
@@ -596,12 +634,14 @@ int main(void)
 		sleep(0);
 	}
 
-	/* Join data read thread */
-	pthread_join(data_read_thread, NULL);
-
-	/* Exit ncurses */
+	// Clean up windows
 	delwin(serial_window);
+	delwin(programs_window);
+	delwin(status_window);
 	endwin();
+
 #endif
+	// Wait for data thread
+	pthread_join(data_read_thread, NULL);
 }
 
