@@ -26,7 +26,9 @@ void charriots_packet_received(struct juggle_packet_t* packet)
 
 void charriots_activate(void)
 {
+    // Load the instruments at the right channel
 	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 7);
+	fluid_synth_program_select(synth, 1, fluid_font_id, 0, 18);
 	//fluid_synth_program_select(synth, 0, fluid_font_id, 0, 18); // accordeon/organ
 }
 
@@ -37,11 +39,23 @@ void charriots_packet_received_thread(void* data)
 	print_string("Packet received: %i %s %s %s\n", packet->ball, packet->action, packet->param1, packet->param2);
 
     // Ball 1-3 caught: guitar strings for intro
-	if (strcmp(packet->action, "CAUGHT") == 0 && packet->ball > 0 && packet->ball <= 3)
+	if (strcmp(packet->action, "CAUGHT") == 0 && packet->ball >= 1 && packet->ball <= 3)
     {
         fluid_synth_noteon(synth, 0, D_FLAT__Db3, 100);
         usleep(1000 * 1000);
         fluid_synth_noteoff(synth, 0, D_FLAT__Db3);
+    }
+
+    // Ball 4-5 Play the intro
+	if (strcmp(packet->action, "THROWN") == 0 && packet->ball >= 4 && packet->ball <= 5)
+    {
+        fluid_synth_noteon(synth, 1, D_FLAT__Db4, 100);
+        usleep(1000 * 1000);
+        fluid_synth_noteoff(synth, 1, D_FLAT__Db4);
+
+        // TODO: trigger noteoff when the ball has been caught.
+        //       but at maximum sound duration (in case caught packet hasn't been received)
+        //       Keep table of progress for each player.
     }
 
 /*
