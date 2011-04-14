@@ -1,5 +1,3 @@
-#define ENABLE_CURSES 1
-
 #include <signal.h>
 #include <stdio.h> /* Standard input/output definitions */
 #include <string.h> /* String function definitions */
@@ -11,9 +9,8 @@
 #include <stdarg.h> /* for variadic functions */
 #include <stdlib.h> /* for malloc, free, exit */
 
-#ifdef ENABLE_CURSES
 #include <curses.h> /* ncurses interface */
-#endif
+
 
 
 #include <fluidsynth.h> /* For the MIDI synthesizer */
@@ -33,12 +30,11 @@ int serial_port;
 struct juggle_program_t* active_program = NULL;
 
 
-#ifdef ENABLE_CURSES
 pthread_t data_read_thread;
 WINDOW *serial_window = NULL;
 WINDOW *status_window = NULL;
 WINDOW *programs_window = NULL;
-#endif
+
 
 /* ===============================[ Serial FIFO queue ]============================ */
 
@@ -161,6 +157,7 @@ struct juggle_packet_t parse_packet(char * input)
 	return packet;
 };
 
+
 void process_packet(struct juggle_packet_t* packet)
 {
 	int ball = packet->ball;
@@ -231,7 +228,7 @@ void init_fluidsynth()
     synth = new_fluid_synth(fluid_settings);
 
 	/* Initialize audio driver */
-    fluid_settings_setstr(fluid_settings, "audio.driver", "alsa");
+    fluid_settings_setstr(fluid_settings, "audio.driver", "oss");
     adriver = new_fluid_audio_driver(fluid_settings, synth);
 
 	/* Load sound font */
@@ -426,7 +423,6 @@ void data_read_loop(void*ptr)
 	}
 }
 
-#ifdef ENABLE_CURSES
 void print_status_window(void)
 {
 	box(status_window, 0, 0);
@@ -472,8 +468,6 @@ void print_programs_window(void)
     }
     wrefresh(programs_window);
 }
-#endif
-
 
 int main(void)
 {
@@ -488,7 +482,6 @@ int main(void)
 	// Start data read thread
 	pthread_create(&data_read_thread, NULL, (void *) &data_read_loop, (void *) NULL);
 
-#ifdef ENABLE_CURSES
 	// Initialize ncurses 
 	initscr();
 
@@ -541,6 +534,27 @@ int main(void)
 	        activate_program(& PROGRAMS[ch - '1']);
         }
 
+        // THROW packet simulation
+        else if (ch == 't')
+        {
+            struct juggle_packet_t dummy_throw_packet;
+            dummy_throw_packet.ball = 1;
+            strcpy(dummy_throw_packet.action, "THROWN");
+            dummy_throw_packet.param1[0] = '\0';
+            dummy_throw_packet.param2[0] = '\0';
+            process_packet(&dummy_throw_packet);
+        }
+        // CAUGHT packet simulation
+        else if (ch == 'c')
+        {
+            struct juggle_packet_t dummy_caught_packet;
+            dummy_caught_packet.ball = 1;
+            strcpy(dummy_caught_packet.action, "CAUGHT");
+            dummy_caught_packet.param1[0] = '\0';
+            dummy_caught_packet.param2[0] = '\0';
+            process_packet(&dummy_caught_packet);
+        }
+
 		// Update serial window
 		while(serial_queue_tail)
 		{
@@ -573,7 +587,6 @@ int main(void)
 	delwin(status_window);
 	endwin();
 
-#endif
 	// Wait for data thread
 	pthread_join(data_read_thread, NULL);
 }
