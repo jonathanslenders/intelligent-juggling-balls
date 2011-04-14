@@ -20,17 +20,8 @@
 
 #define PORT_NAME "/dev/ttyUSB0"
 
-
-#define D_FLAT__Db3 49
-
-#define D_FLAT__C4 60
-#define D_FLAT__Db4 61
-#define D_FLAT__Eb4 63
-#define D_FLAT__F4 65
-#define D_FLAT__Gb4 66
-#define D_FLAT__Ab4 68
-#define D_FLAT__Bb4 70
-
+#include "main.h"
+#include "programs/charriots_of_fire.h"
 
 /* ===============================[ Globals ]============================ */
 
@@ -38,25 +29,6 @@ struct termios options;
 struct termios options_original;
 int serial_port;
 
-
-/* Juggle data packet */
-struct juggle_packet_t
-{
-	int ball; // Zero means addressing all balls, otherwise ball number
-	char action[256];
-	char param1[256];
-	char param2[256];
-};
-
-
-/* Program meta information */
-struct juggle_program_t
-{
-	char description[256];
-	void (*activate)(void);
-	void (*deactivate)(void);
-	void (*packet_received)(struct juggle_packet_t* packet);
-};
 
 struct juggle_program_t* active_program = NULL;
 
@@ -67,11 +39,6 @@ WINDOW *serial_window = NULL;
 WINDOW *status_window = NULL;
 WINDOW *programs_window = NULL;
 #endif
-
-/* ===============================[ Method signatures ]============================ */
-
-// ...
-
 
 /* ===============================[ Serial FIFO queue ]============================ */
 
@@ -93,8 +60,6 @@ struct serial_queue_t
 
 struct serial_queue_t * serial_queue_head = NULL;
 struct serial_queue_t * serial_queue_tail = NULL;
-
-void print_string(const char* format, ...) __attribute__ ((format (printf, 1, 2)));
 
 void print_string(const char* format, ...)
 {
@@ -254,8 +219,8 @@ void send_packet(char* command, int ball, char* param1, char* param2)
 
 
 fluid_settings_t* fluid_settings;
-fluid_synth_t* synth;
 fluid_audio_driver_t* adriver;
+fluid_synth_t* synth;
 int fluid_font_id;
 
 void init_fluidsynth()
@@ -323,32 +288,6 @@ void identify_activate(void)
 }
 
 /* *** 4: Charriots of Fire *** */
-
-void charriots_activate(void)
-{
-	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 7);
-	//fluid_synth_program_select(synth, 0, fluid_font_id, 0, 18); // accordeon/organ
-}
-void charriots_packet_received(struct juggle_packet_t* packet)
-{
-	print_string("Packet received: %i %s %s %s\n", packet->ball, packet->action, packet->param1, packet->param2);
-
-/*
-	//printf("action=%s\n", packet->action);
-	if (strcmp(packet->action, "CAUGHT") == 0)
-		fluid_synth_noteoff(synth, 0, D_FLAT__Db3);
-
-	else if (strcmp(packet->action, "CAUGHT*") == 0)
-		fluid_synth_noteoff(synth, 0, D_FLAT__Db3);
-
-	else if (strcmp(packet->action, "THROWN") == 0)
-		fluid_synth_noteon(synth, 0, D_FLAT__Db3, 100);
-*/
-
-	if (strcmp(packet->action, "CAUGHT") == 0)
-		fluid_synth_noteon(synth, 0, D_FLAT__F4, 100);
-}
-
 
 // Activate program
 void activate_program(struct juggle_program_t* program)
@@ -441,7 +380,7 @@ void  sigint_handler(int sig)
 bool running = true;
 
 /* Read input from serial port and process */
-void data_read_loop(void)
+void data_read_loop(void*ptr)
 {
 	#define READ_BUFFER_LENGTH 256
 	char read_buffer[READ_BUFFER_LENGTH+1] = { 0 };
@@ -486,12 +425,6 @@ void data_read_loop(void)
 		}
 	}
 }
-
-void start_data_read_thread(void *ptr)
-{
-	data_read_loop();
-}
-
 
 #ifdef ENABLE_CURSES
 void print_status_window(void)
@@ -553,7 +486,7 @@ int main(void)
 	signal (SIGINT, (void*)sigint_handler);
 
 	// Start data read thread
-	pthread_create(&data_read_thread, NULL, (void *) &start_data_read_thread, (void *) NULL);
+	pthread_create(&data_read_thread, NULL, (void *) &data_read_loop, (void *) NULL);
 
 #ifdef ENABLE_CURSES
 	// Initialize ncurses 
