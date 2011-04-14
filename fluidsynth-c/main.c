@@ -54,21 +54,22 @@ struct juggle_program_t
 {
 	char description[256];
 	void (*activate)(void);
+	void (*deactivate)(void);
 	void (*packet_received)(struct juggle_packet_t* packet);
 };
 
-struct juggle_program_t* active_program;
+struct juggle_program_t* active_program = NULL;
 
 
 #ifdef ENABLE_CURSES
 pthread_t data_read_thread;
 WINDOW *serial_window = NULL;
 WINDOW *status_window = NULL;
+WINDOW *programs_window = NULL;
 #endif
 
 /* ===============================[ Method signatures ]============================ */
 
-void print(char *data);
 // ...
 
 
@@ -80,10 +81,12 @@ void print(char *data);
  */
 
 pthread_mutex_t serial_queue_access_mutex = PTHREAD_MUTEX_INITIALIZER;
+int serial_line = 0;
 
 struct serial_queue_t
 {
 	char* string;
+    int line;
 	struct serial_queue_t* next; // TODO: I don't think we actually need the next pointer
 	struct serial_queue_t* prev;
 };
@@ -111,6 +114,7 @@ void print_string(const char* format, ...)
 	// Create new node
 	struct serial_queue_t* new_head = (struct serial_queue_t*) malloc(sizeof(struct serial_queue_t));
 	new_head->string = new_string;
+    new_head->line = ++ serial_line;
 
 	if (serial_queue_head)
 	{
@@ -254,7 +258,8 @@ void init_fluidsynth()
 
 	/* Test sound ;) */
 	int i;
-	for (i = 0; i < 2; i ++){
+	for (i = 0; i < 2; i ++)
+    {
 		fluid_synth_program_select(synth, 0, fluid_font_id, 0, 7);
 
 		fluid_synth_cc(synth, 0, 10, 120); /* 10=pan, between 0 and 127 */
@@ -278,7 +283,6 @@ void cleanup_fluidsynth(void)
 
 
 /* ===============================[ Programs ]============================ */
-
 
 /* **** 1: debug **** */
 void test_app1_activate(void)
@@ -318,26 +322,32 @@ void charriots_packet_received(struct juggle_packet_t* packet)
 }
 
 
-
-
 // Activate program
 void activate_program(struct juggle_program_t* program)
 {
-	program->activate();
+    if (active_program && active_program->deactivate)
+	    active_program->deactivate();
+
+    if (program->activate)
+	    program->activate();
+
 	print_string("Activating program %s\n", program->description);
 	active_program = program;
 }
 
 // List of all available programs
-struct juggle_program_t PROGRAMS[] = {
+#define PROGRAMS_COUNT 2
+struct juggle_program_t PROGRAMS[PROGRAMS_COUNT] = {
 		{
 			"test app 1",
 			test_app1_activate,
+            NULL,
 			test_app1_packet_received,
 		},
 		{
 			"Charriots of Fire",
 			charriots_activate,
+            NULL,
 			charriots_packet_received,
 		}
 };
@@ -442,10 +452,12 @@ void start_data_read_thread(void *ptr)
 #ifdef ENABLE_CURSES
 void print_status_window(void)
 {
+	box(status_window, 0, 0);
+
 	// Print header
-	attron(COLOR_PAIR(1));
+	wattron(status_window, COLOR_PAIR(1));
 	mvwprintw(status_window, 0, 4, "Juggling balls");
-	attroff(COLOR_PAIR(1));
+	wattroff(status_window, COLOR_PAIR(1));
 	mvwprintw(status_window, 1, 1, "Ball | Power | In air | On table | Throws | Catches | Program");
 
 	// Print ball statusses
@@ -464,8 +476,34 @@ void print_status_window(void)
 	wrefresh(status_window);
 }
 
+void print_programs_window(void)
+{
+	box(programs_window, 0, 0);
+
+    // Print header
+	wattron(programs_window, COLOR_PAIR(1));
+	mvwprintw(programs_window, 0, 4, "Programs");
+	wattroff(programs_window, COLOR_PAIR(1));
+
+    // Print programs
+    int i;
+    for(i = 0; i < PROGRAMS_COUNT; i ++)
+    {
+		char buffer[256];
+		snprintf(buffer, 256, "%3i  %s", i, PROGRAMS[i].description);
+		mvwprintw(programs_window, 2+i, 1, buffer);
+    }
+    wrefresh(programs_window);
+}
 #endif
 
+
+void print_in_middle(WINDOW *win, char *string)
+{   
+    wcolor_set(win, 1, NULL);
+    mvwprintw(win, 3, 3, "%s", string);
+    refresh();
+}
 
 
 int main(void)
@@ -489,27 +527,29 @@ int main(void)
 		exit(1);
 	}
 
+	start_color();			/* Start color 			*/
+	init_pair(1, COLOR_WHITE, COLOR_MAGENTA);
+    print_string("colours counted %i", COLORS);
+
 	raw();				/* Line buffering disabled	*/
 	keypad(stdscr, TRUE);		/* We get F1, F2 etc..		*/
 	noecho();			/* Don't echo() while we do getch */
-	start_color();			/* Start color 			*/
-	init_pair(1, COLOR_RED, COLOR_BLACK);
-	//halfdelay(1); /* Nonblocking getch */
+    curs_set(0); /* Make cursor invisible */
 	timeout(0); /* nonblocking getch */
-
-	refresh();
-
-	// Serial window
-	serial_window = newwin(20, 60, 22, 0);
-	scrollok(serial_window, 1);
-	//wsetscrreg(serial_window, 1, 14);
-	box(serial_window, 0, 0);
+	//halfdelay(1); /* Nonblocking getch */
 
 	// Status window
 	status_window = newwin(20, 78, 1, 1);
-	box(status_window, 0, 0);
 
-	/* Start data read thread */
+	// Serial window
+	serial_window = newwin(15, 60, 22, 0);
+	scrollok(serial_window, 1);
+	//wsetscrreg(serial_window, 1, 14);
+
+    // Programs window
+    programs_window = newwin(10, 60, 40, 0);
+
+	// Start data read thread
 	pthread_create(&data_read_thread, NULL, (void *) &start_data_read_thread, (void *) NULL);
 
 	/* ncurses GUI loop */
@@ -517,21 +557,21 @@ int main(void)
 	{
 		int ch = getch();
 		if (ch != -1)
-			print_string("pressed key: %i", ch);
+			print_string("key: %c (int=%i)", ch, ch);
 
-		//attron(COLOR_PAIR(1));
-		//mvwprintw(serial_window, 3, 3, "test");
-		//attroff(COLOR_PAIR(1));
-		//wrefresh(serial_window);
-
+        // Quit
 		if (ch == 'q')
 		{
 			running = false;
 			break;
 		}
+        // Start program
+        else if (ch >= '1' && ch-'1' < PROGRAMS_COUNT)
+        {
+	        activate_program(& PROGRAMS[ch - '1']);
+        }
 
-
-		/* Update serial window */
+		// Update serial window
 		while(serial_queue_tail)
 		{
 			/* Scroll one line up */
@@ -541,12 +581,15 @@ int main(void)
 			int y, x;
 			getmaxyx(serial_window, y, x);
 
-			char* string = (serial_queue_tail->string);
-			mvwprintw(serial_window, y-2, 1, string);
+            char buffer[256];
+            snprintf(buffer, 256, "%i %s", serial_queue_tail->line, serial_queue_tail->string);
+			mvwprintw(serial_window, y-2, 1, buffer);
 			pop_serial_queue_tail();
 			wrefresh(serial_window);
 		}
 
+        wborder(serial_window, '|', '|', ' ', ' ', ' ', ' ', ' ', ' ');
+        print_programs_window();
 		print_status_window();
 
 		// Idle
@@ -555,9 +598,6 @@ int main(void)
 
 	/* Join data read thread */
 	pthread_join(data_read_thread, NULL);
-
-	/* Data in read loop */
-	// data_read_loop();
 
 	/* Exit ncurses */
 	delwin(serial_window);
