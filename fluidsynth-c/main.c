@@ -403,7 +403,10 @@ void data_read_loop(void*ptr)
 				// Process packet
 				struct juggle_packet_t packet;
 				if (parse_packet(buffer2, &packet))
+				{
+	//packet.ball = 6;
 					process_packet(&packet);
+					}
 			}
 
 			// Flush stdout for debugging
@@ -502,7 +505,7 @@ int main(void)
 	status_window = newwin(20, 78, 1, 1);
 
 	// Serial window
-	serial_window = newwin(15, 60, 22, 0);
+	serial_window = newwin(18, 60, 22, 0);
 	scrollok(serial_window, 1);
 	//wsetscrreg(serial_window, 1, 14);
 
@@ -568,7 +571,7 @@ int main(void)
 		}
 
         // Refresh
-        wborder(serial_window, '|', '|', ' ', ' ', ' ', ' ', ' ', ' ');
+        wborder(serial_window, '.', '.', ' ', ' ', ' ', ' ', ' ', ' ');
         print_programs_window();
 		print_status_window();
 

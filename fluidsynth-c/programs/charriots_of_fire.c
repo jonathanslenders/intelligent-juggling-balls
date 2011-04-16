@@ -4,6 +4,7 @@
 #include "charriots_of_fire.h"
 
 
+// http://en.wikipedia.org/wiki/General_MIDI
 
 /* === Music definitions === */
 
@@ -12,10 +13,23 @@ struct theme_note_t {
 };
 
 
+
+struct theme_note_t intro_melody[] =
+{
+	
+		{ D_FLAT__Db4, },
+		{ D_FLAT__Ab4, },
+		{ D_FLAT__Db4, },
+		{ D_FLAT__Ab4, },
+		{ D_FLAT__Db4, },
+		{ D_FLAT__Ab4, },
+};
+
+
 int main_theme_position = 0;
 bool main_theme_playing = false;
 #define MAIN_THEME_COUNT 22
-struct theme_note_t main_theme[] = 
+struct theme_note_t main_theme_a[] = 
 {
 		{ D_FLAT__Db4, },
 		{ D_FLAT__Gb4, },
@@ -43,6 +57,61 @@ struct theme_note_t main_theme[] =
 		{ D_FLAT__Db4, },
 		{ D_FLAT__Db4, },
 };
+
+
+int main_theme_b_position = 0;
+bool main_theme_b_playing = false;
+#define MAIN_THEME_COUNT_B 30
+struct theme_note_t main_theme_b[] = 
+{
+		{ D_FLAT__Db5, },
+		{ D_FLAT__C5, },
+		{ D_FLAT__Bb4, },
+		{ D_FLAT__Ab4, },
+
+		{ D_FLAT__C5, },
+		{ D_FLAT__Ab4, },
+		{ D_FLAT__Bb4, },
+		{ D_FLAT__Gb4, },
+		{ D_FLAT__Ab4, },
+		{ D_FLAT__Db5, },
+
+		{ D_FLAT__C5, },
+		{ D_FLAT__Bb4, },
+		{ D_FLAT__Ab4, },
+
+		{ D_FLAT__C5, },
+		{ D_FLAT__Gb4, },
+		{ D_FLAT__F4, },
+
+		{ D_FLAT__Db5, },
+		{ D_FLAT__C5, },
+		{ D_FLAT__Bb4, },
+		{ D_FLAT__Ab4, },
+
+		{ D_FLAT__C5, },
+		{ D_FLAT__Ab4, },
+		{ D_FLAT__Bb4, },
+		{ D_FLAT__Gb4, },
+		{ D_FLAT__Ab4, },
+		{ D_FLAT__F4, },
+
+		{ D_FLAT__Gb4, },
+		{ D_FLAT__F4, },
+		{ D_FLAT__Db4, },
+		{ D_FLAT__Db4, },
+
+
+		// ...
+
+};
+
+
+
+
+
+
+
 
 
 /* ==== Program === */
@@ -74,6 +143,7 @@ void charriots_activate(void)
     // Load the instruments at the right channel
 	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 7);
 	fluid_synth_program_select(synth, 1, fluid_font_id, 0, 18);
+	fluid_synth_program_select(synth, 2, fluid_font_id, 0, 42);
 	//fluid_synth_program_select(synth, 0, fluid_font_id, 0, 18); // accordeon/organ
 	main_theme_position = 0;
 	main_theme_playing = false;
@@ -110,7 +180,7 @@ void charriots_packet_received_thread(void* data)
 	// Ball 6-8: main theme
 	if (packet->ball >= 6 && packet->ball <= 8)
 	{
-		int note = main_theme[main_theme_position].note;
+		int note = main_theme_b[main_theme_position].note;
 
 		if (strcmp(packet->action, "THROWN") == 0 && !main_theme_playing)
 		{
@@ -133,7 +203,7 @@ void charriots_packet_received_thread(void* data)
 			if (! juggle_states[6].in_free_fall && ! juggle_states[7].in_free_fall && ! juggle_states[8].in_free_fall)
 			{
 				main_theme_playing = false;
-				main_theme_position = (main_theme_position + 1) % MAIN_THEME_COUNT;
+				main_theme_position = (main_theme_position + 1) % MAIN_THEME_COUNT_B;
 				fluid_synth_noteoff(synth, 2, note);
 			}
 		}

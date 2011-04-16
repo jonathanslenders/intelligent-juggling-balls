@@ -17,10 +17,19 @@
 #define D_FLAT__Ab4 68
 #define D_FLAT__Bb4 70
 
+#define D_FLAT__C5 72
+#define D_FLAT__Db5 73
+#define D_FLAT__Eb5 75
+#define D_FLAT__F5 77
+#define D_FLAT__Gb5 78
+#define D_FLAT__Ab5 80
+#define D_FLAT__Bb5 82
+
+
 
 // State machine
 
-#define BALL_COUNT 20
+#define BALL_COUNT 16
 
 struct juggle_ball_state_t
 {
