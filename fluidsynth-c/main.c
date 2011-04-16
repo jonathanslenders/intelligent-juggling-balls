@@ -9,7 +9,7 @@
 #include <stdarg.h> /* for variadic functions */
 #include <stdlib.h> /* for malloc, free, exit */
 
-#include <curses.h> /* ncurses interface */
+#include <curses.h> /* ncurses interface, also defines boolean types */
 
 
 
@@ -130,33 +130,24 @@ char* pop_serial_queue_tail(void)
 
 /* ===============================[ State register ]============================ */
 
-#define BALL_COUNT 20
-
-struct juggle_ball_state_t
-{
-	double voltage;
-	bool in_free_fall;
-	bool on_table;
-	int throws;
-	int catches;
-	//char current_program[256];
-};
-
 struct juggle_ball_state_t juggle_states[BALL_COUNT];
 
 
 /* ===============================[ Packet processing ]============================ */
 
-struct juggle_packet_t parse_packet(char * input)
+
+// Scan input line, and parse packet. Returns true on success
+bool parse_packet(char * input, struct juggle_packet_t* packet)
 {
-	struct juggle_packet_t packet;
-	packet.param1[0] = '\0';
-	packet.param2[0] = '\0';
+	packet->action[0] = '\0';
+	packet->param1[0] = '\0';
+	packet->param2[0] = '\0';
 
-	sscanf(input, "%s %i %s %s", packet.action, &packet.ball, packet.param1, packet.param2);
-	return packet;
+	if (sscanf(input, "%s %i %s %s", packet->action, &packet->ball, packet->param1, packet->param2) != 0)
+		return true;
+	else
+		return false;
 };
-
 
 void process_packet(struct juggle_packet_t* packet)
 {
@@ -228,7 +219,7 @@ void init_fluidsynth()
     synth = new_fluid_synth(fluid_settings);
 
 	/* Initialize audio driver */
-    fluid_settings_setstr(fluid_settings, "audio.driver", "oss");
+    fluid_settings_setstr(fluid_settings, "audio.driver", "alsa");
     adriver = new_fluid_audio_driver(fluid_settings, synth);
 
 	/* Load sound font */
@@ -399,6 +390,8 @@ void data_read_loop(void*ptr)
 			// When a newline appears in the queue
 			char * newline_pos = strstr(read_buffer, "\n");
 
+					// TODO: this still has some trouble with two concecutive newlines
+
 			if (newline_pos)
 			{
 				// Copy everything to second buffer.
@@ -408,8 +401,9 @@ void data_read_loop(void*ptr)
 				*strstr(buffer2, "\n") = '\0';
 
 				// Process packet
-				struct juggle_packet_t packet =  parse_packet(buffer2);
-				process_packet(&packet);
+				struct juggle_packet_t packet;
+				if (parse_packet(buffer2, &packet))
+					process_packet(&packet);
 			}
 
 			// Flush stdout for debugging
@@ -538,7 +532,7 @@ int main(void)
         else if (ch == 't')
         {
             struct juggle_packet_t dummy_throw_packet;
-            dummy_throw_packet.ball = 1;
+            dummy_throw_packet.ball = 6;
             strcpy(dummy_throw_packet.action, "THROWN");
             dummy_throw_packet.param1[0] = '\0';
             dummy_throw_packet.param2[0] = '\0';
@@ -548,7 +542,7 @@ int main(void)
         else if (ch == 'c')
         {
             struct juggle_packet_t dummy_caught_packet;
-            dummy_caught_packet.ball = 1;
+            dummy_caught_packet.ball = 6;
             strcpy(dummy_caught_packet.action, "CAUGHT");
             dummy_caught_packet.param1[0] = '\0';
             dummy_caught_packet.param2[0] = '\0';
@@ -568,6 +562,7 @@ int main(void)
             char buffer[256];
             snprintf(buffer, 256, "%i %s", serial_queue_tail->line, serial_queue_tail->string);
 			mvwprintw(serial_window, y-2, 1, buffer);
+
 			pop_serial_queue_tail();
 			wrefresh(serial_window);
 		}

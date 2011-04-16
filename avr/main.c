@@ -63,6 +63,7 @@ volatile unsigned int __last_free_fall_duration = 0;
 volatile unsigned int __free_fall_duration = 0;
 volatile unsigned int __time_since_last_catch = 0;
 volatile bool __in_free_fall = false;
+volatile int __in_free_fall_counter = 0; // Counter 0..x for counting how many samples we are in free fall.
 
 // Moving / on table. We consider the ball to be still on a table when there
 // has not been measured any significant difference in accelleration during the
@@ -311,8 +312,13 @@ inline bool adc_main_loop()
 	{
 		if (! __in_free_fall)
 		{
-			__in_free_fall = true;
-			leave_hand();
+			__in_free_fall_counter ++;
+
+			if (__in_free_fall_counter > 3) // Need to have 30 samples in free fall before being sure...
+			{
+				__in_free_fall = true;
+				leave_hand();
+			}
 		}
 
 		// Free fall doesn't count as being on the table. Even if this
@@ -320,8 +326,12 @@ inline bool adc_main_loop()
 		// on-table to be triggered.
 		__on_table_counter = 0;
 	}
+	// Not in free fall.
 	else
 	{
+		// Reset free fall counter
+		__in_free_fall_counter = 0;
+
 		if (__in_free_fall)
 		{
 			__in_free_fall = false;
@@ -358,12 +368,11 @@ void leave_hand()
 	force += DISTANCE(__last_measurement_y, Y_CENTER);
 	force += DISTANCE(__last_measurement_z, Z_CENTER);
 
-	char buffer[32];
+	char buffer[8];
 	snprintf(buffer, 8, "%u", force);
 
 	// USART Feedback
 	usart_send_packet("THROWN", buffer, NULL);
-
 
 	// Program callback
 	__leave_hand_callback();

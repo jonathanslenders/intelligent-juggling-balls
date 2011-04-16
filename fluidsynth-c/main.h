@@ -3,7 +3,9 @@
 
 #include <fluidsynth.h>
 
+#include <curses.h> /* ncurses interface */
 
+// Music notes definitions
 
 #define D_FLAT__Db3 49
 
@@ -15,6 +17,22 @@
 #define D_FLAT__Ab4 68
 #define D_FLAT__Bb4 70
 
+
+// State machine
+
+#define BALL_COUNT 20
+
+struct juggle_ball_state_t
+{
+	double voltage;
+	bool in_free_fall;
+	bool on_table;
+	int throws;
+	int catches;
+	//char current_program[256];
+};
+
+extern struct juggle_ball_state_t juggle_states[BALL_COUNT];
 
 
 // Juggle data packet
@@ -42,5 +60,8 @@ void print_string(const char* format, ...) __attribute__ ((format (printf, 1, 2)
 
 extern fluid_synth_t* synth;
 extern int fluid_font_id;
+
+
+
 
 #endif
