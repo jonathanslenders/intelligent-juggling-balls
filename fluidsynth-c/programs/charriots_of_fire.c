@@ -169,9 +169,6 @@ void charriots_deactivate(void)
 	fluid_synth_cc(synth, 3, 123, 0);
 }
 
-
-void charriots_packet_received_thread(void* data);
-
 void charriots_packet_received(struct juggle_packet_t* packet)
 {
 	print_string("Packet received: %i %s %s %s\n", packet->ball, packet->action, packet->param1, packet->param2);

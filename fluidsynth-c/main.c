@@ -21,6 +21,7 @@
 
 #include "programs/charriots_of_fire.h"
 #include "programs/wild_mountain_thyme.h"
+#include "programs/percussion.h"
 
 
 /* ===============================[ Globals ]============================ */
@@ -304,7 +305,7 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 5
+#define PROGRAMS_COUNT 6
 struct juggle_program_t PROGRAMS[] = {
 		{
 			"test app 1",
@@ -335,6 +336,12 @@ struct juggle_program_t PROGRAMS[] = {
 			charriots_activate,
             charriots_deactivate,
 			charriots_packet_received,
+		},
+		{
+			"Percussion",
+			percussion_activate,
+            percussion_deactivate,
+			percussion_packet_received,
 		}
 };
 
