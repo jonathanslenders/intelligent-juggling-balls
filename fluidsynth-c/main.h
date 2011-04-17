@@ -7,6 +7,10 @@
 
 // Music notes definitions
 
+
+
+//  D Flat scale
+
 #define D_FLAT__Db3 49
 
 #define D_FLAT__C4 60
@@ -25,6 +29,23 @@
 #define D_FLAT__Ab5 80
 #define D_FLAT__Bb5 82
 
+// C Scale
+
+#define G_SHARP__Cs4 61
+#define G_SHARP__D4 62
+#define G_SHARP__E4 64
+#define G_SHARP__Fs4 66
+#define G_SHARP__G4 67
+#define G_SHARP__A4 69
+#define G_SHARP__B4 71
+
+#define G_SHARP__Cs5 73
+#define G_SHARP__D5 74
+#define G_SHARP__E5 76
+#define G_SHARP__Fs5 78
+#define G_SHARP__G5 79
+#define G_SHARP__A5 81
+#define G_SHARP__B5 83
 
 
 // State machine
@@ -38,7 +59,7 @@ struct juggle_ball_state_t
 	bool on_table;
 	int throws;
 	int catches;
-	//char current_program[256];
+	char last_run_command[256];
 };
 
 extern struct juggle_ball_state_t juggle_states[BALL_COUNT];
@@ -71,6 +92,7 @@ extern fluid_synth_t* synth;
 extern int fluid_font_id;
 
 
+void send_packet(char* command, int ball, char* param1, char* param2);
 
 
 #endif

@@ -18,7 +18,10 @@
 #define PORT_NAME "/dev/ttyUSB0"
 
 #include "main.h"
+
 #include "programs/charriots_of_fire.h"
+#include "programs/wild_mountain_thyme.h"
+
 
 /* ===============================[ Globals ]============================ */
 
@@ -140,10 +143,11 @@ struct juggle_ball_state_t juggle_states[BALL_COUNT];
 bool parse_packet(char * input, struct juggle_packet_t* packet)
 {
 	packet->action[0] = '\0';
+	packet->ball = 0;
 	packet->param1[0] = '\0';
 	packet->param2[0] = '\0';
 
-	if (sscanf(input, "%s %i %s %s", packet->action, &packet->ball, packet->param1, packet->param2) != 0)
+	if (sscanf(input, "%s %i %s %s", packet->action, &packet->ball, packet->param1, packet->param2) >= 2)
 		return true;
 	else
 		return false;
@@ -200,6 +204,19 @@ void send_packet(char* command, int ball, char* param1, char* param2)
     // Sent packet
     int length = snprintf(buffer, 256, "%s %i %s %s\n", command, ball, param1, param2);
     write(serial_port, buffer, length);
+
+	// When we sent a 'RUN' command, keep track in the state table
+	if (strcmp(command, "RUN") == 0)
+	{
+		if (ball > 0)
+			strcpy(juggle_states[ball-1].last_run_command, buffer);
+		else
+		{
+			int i;
+			for(i = 0; i < BALL_COUNT; i ++)
+				strcpy(juggle_states[i].last_run_command, buffer);
+		}
+	}
 }
 
 
@@ -230,11 +247,6 @@ void init_fluidsynth()
 	for (i = 0; i < 2; i ++)
     {
 		fluid_synth_program_select(synth, 0, fluid_font_id, 0, 7);
-
-		fluid_synth_cc(synth, 0, 10, 120); /* 10=pan, between 0 and 127 */
-		fluid_synth_cc(synth, 0, 7, 90); /* 7=volume, between 0 and 127 */
-		fluid_synth_cc(synth, 0, 64, 30); /* 64=sustain */
-		//fluid_synth_cc(synth, 0, 91, 100); /* 91=reverb */
 
 		fluid_synth_noteon(synth, 1, D_FLAT__Db3, 100);
 		usleep(100 * 1000);
@@ -292,7 +304,7 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 4
+#define PROGRAMS_COUNT 5
 struct juggle_program_t PROGRAMS[] = {
 		{
 			"test app 1",
@@ -313,9 +325,15 @@ struct juggle_program_t PROGRAMS[] = {
             NULL,
         },
 		{
+			"Wild mountain thyme",
+			wild_mountain_thyme_activate,
+            wild_mountain_thyme_deactivate,
+			wild_mountain_packet_received,
+		},
+		{
 			"Charriots of Fire",
 			charriots_activate,
-            NULL,
+            charriots_deactivate,
 			charriots_packet_received,
 		}
 };
@@ -402,6 +420,7 @@ void data_read_loop(void*ptr)
 
 				// Process packet
 				struct juggle_packet_t packet;
+
 				if (parse_packet(buffer2, &packet))
 				{
 	//packet.ball = 6;
@@ -422,39 +441,35 @@ void data_read_loop(void*ptr)
 
 void print_status_window(void)
 {
-	box(status_window, 0, 0);
-
-	// Print header
-	wattron(status_window, COLOR_PAIR(1));
-	mvwprintw(status_window, 0, 4, "Juggling balls");
-	wattroff(status_window, COLOR_PAIR(1));
-	mvwprintw(status_window, 1, 1, "Ball | Power | In air | On table | Throws | Catches | Program");
-
 	// Print ball statusses
 	int i;
 	for (i = 0; i < BALL_COUNT; i++)
 	{
 		char buffer[256];
-		snprintf(buffer, 256, "%3i  %5fv     %-3s     %-3s        %5i     %5i", i, 
+		snprintf(buffer, 256, "%3i  %5fv     %-3s     %-3s    %5i     %5i     %s",
+						i+1, 
 						juggle_states[i].voltage,
 						(juggle_states[i].in_free_fall ? "Yes": "No"),
 						(juggle_states[i].on_table ? "Yes": "No"),
 						juggle_states[i].throws,
-						juggle_states[i].catches);
+						juggle_states[i].catches,
+						juggle_states[i].last_run_command 
+						);
 		mvwprintw(status_window, 2+i, 1, buffer);
 	}
+
+    // Print box and title
+	box(status_window, 0, 0);
+	wattron(status_window, COLOR_PAIR(1));
+	mvwprintw(status_window, 0, 4, "Juggling balls");
+	wattroff(status_window, COLOR_PAIR(1));
+	mvwprintw(status_window, 1, 1, "Ball | Power | In air | On table | Throws | Catches | Program");
+
 	wrefresh(status_window);
 }
 
 void print_programs_window(void)
 {
-	box(programs_window, 0, 0);
-
-    // Print header
-	wattron(programs_window, COLOR_PAIR(1));
-	mvwprintw(programs_window, 0, 4, "Programs");
-	wattroff(programs_window, COLOR_PAIR(1));
-
     // Print programs
     int i;
     for(i = 0; i < PROGRAMS_COUNT; i ++)
@@ -463,7 +478,34 @@ void print_programs_window(void)
 		snprintf(buffer, 256, "%3i  %s", i+1, PROGRAMS[i].description);
 		mvwprintw(programs_window, 2+i, 1, buffer);
     }
+
+    // Print box and title
+	box(programs_window, 0, 0);
+	wattron(programs_window, COLOR_PAIR(1));
+	mvwprintw(programs_window, 0, 4, "Programs");
+	wattroff(programs_window, COLOR_PAIR(1));
+
     wrefresh(programs_window);
+}
+
+void simulate_throw(int ball)
+{
+	struct juggle_packet_t dummy_throw_packet;
+	dummy_throw_packet.ball = ball;
+	strcpy(dummy_throw_packet.action, "THROWN");
+	dummy_throw_packet.param1[0] = '\0';
+	dummy_throw_packet.param2[0] = '\0';
+	process_packet(&dummy_throw_packet);
+}
+
+void simulate_catch(int ball)
+{
+	struct juggle_packet_t dummy_caught_packet;
+	dummy_caught_packet.ball = ball;
+	strcpy(dummy_caught_packet.action, "CAUGHT");
+	dummy_caught_packet.param1[0] = '\0';
+	dummy_caught_packet.param2[0] = '\0';
+	process_packet(&dummy_caught_packet);
 }
 
 int main(void)
@@ -532,25 +574,28 @@ int main(void)
         }
 
         // THROW packet simulation
-        else if (ch == 't')
-        {
-            struct juggle_packet_t dummy_throw_packet;
-            dummy_throw_packet.ball = 6;
-            strcpy(dummy_throw_packet.action, "THROWN");
-            dummy_throw_packet.param1[0] = '\0';
-            dummy_throw_packet.param2[0] = '\0';
-            process_packet(&dummy_throw_packet);
-        }
+        else if (ch == 'a') simulate_throw(1);
+        else if (ch == 'o') simulate_throw(2);
+        else if (ch == 'e') simulate_throw(3);
+        else if (ch == 'u') simulate_throw(4);
+        else if (ch == 'i') simulate_throw(5);
+        else if (ch == 'd') simulate_throw(6);
+        else if (ch == 'h') simulate_throw(7);
+        else if (ch == 't') simulate_throw(8);
+        else if (ch == 'n') simulate_throw(9);
+        else if (ch == 's') simulate_throw(10);
+
         // CAUGHT packet simulation
-        else if (ch == 'c')
-        {
-            struct juggle_packet_t dummy_caught_packet;
-            dummy_caught_packet.ball = 6;
-            strcpy(dummy_caught_packet.action, "CAUGHT");
-            dummy_caught_packet.param1[0] = '\0';
-            dummy_caught_packet.param2[0] = '\0';
-            process_packet(&dummy_caught_packet);
-        }
+        else if (ch == '\'') simulate_catch(1);
+        else if (ch == ',') simulate_catch(2);
+        else if (ch == '.') simulate_catch(3);
+        else if (ch == 'p') simulate_catch(4);
+        else if (ch == 'y') simulate_catch(5);
+        else if (ch == 'f') simulate_catch(6);
+        else if (ch == 'g') simulate_catch(7);
+        else if (ch == 'c') simulate_catch(8);
+        else if (ch == 'r') simulate_catch(9);
+        else if (ch == 'l') simulate_catch(10);
 
 		// Update serial window
 		while(serial_queue_tail)

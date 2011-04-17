@@ -2,21 +2,17 @@
 
 #include "../main.h"
 #include "charriots_of_fire.h"
+#include "../sound_utils.h"
 
 
 // http://en.wikipedia.org/wiki/General_MIDI
 
 /* === Music definitions === */
 
-struct theme_note_t {
-	int note;
-};
 
-
-
+// Violin
 struct theme_note_t intro_melody[] =
 {
-	
 		{ D_FLAT__Db4, },
 		{ D_FLAT__Ab4, },
 		{ D_FLAT__Db4, },
@@ -26,9 +22,14 @@ struct theme_note_t intro_melody[] =
 };
 
 
-int main_theme_position = 0;
-bool main_theme_playing = false;
-#define MAIN_THEME_COUNT 22
+// Violin / Piano
+#define MAIN_THEME_A_COUNT 22
+struct theme_status_t main_theme_a_status =
+{
+	false,
+	0,
+};
+
 struct theme_note_t main_theme_a[] = 
 {
 		{ D_FLAT__Db4, },
@@ -58,10 +59,13 @@ struct theme_note_t main_theme_a[] =
 		{ D_FLAT__Db4, },
 };
 
-
-int main_theme_b_position = 0;
-bool main_theme_b_playing = false;
-#define MAIN_THEME_COUNT_B 30
+// Piano
+#define MAIN_THEME_B_COUNT 30
+struct theme_status_t main_theme_b_status =
+{
+	false,
+	0,
+};
 struct theme_note_t main_theme_b[] = 
 {
 		{ D_FLAT__Db5, },
@@ -107,52 +111,69 @@ struct theme_note_t main_theme_b[] =
 };
 
 
-
-
-
-
-
-
-
 /* ==== Program === */
+
+
+
+void charriots_activate(void)
+{
+    // Load the instruments at the right channel
+	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 24);
+	fluid_synth_program_select(synth, 1, fluid_font_id, 0, 42);
+	fluid_synth_program_select(synth, 2, fluid_font_id, 0, 0);
+	fluid_synth_program_select(synth, 3, fluid_font_id, 0, 18); // accordeon/organ
+
+	// Channel options
+	fluid_synth_cc(synth, 0, 10, 120); /* 10=pan, between 0 and 127 */
+	fluid_synth_cc(synth, 0, 7, 50); /* 7=volume, between 0 and 127 */
+	fluid_synth_cc(synth, 0, 64, 30); /* 64=sustain */
+	//fluid_synth_cc(synth, 0, 91, 100); /* 91=reverb */
+
+	fluid_synth_cc(synth, 1, 10, 60); /* 10=pan, between 0 and 127 */
+	fluid_synth_cc(synth, 1, 7, 90); /* 7=volume, between 0 and 127 */
+
+
+	fluid_synth_cc(synth, 2, 10, 20); /* 10=pan, between 0 and 127 */
+	fluid_synth_cc(synth, 2, 7, 90); /* 7=volume, between 0 and 127 */
+	// Initialize positions
+	main_theme_a_status.playing = false;
+	main_theme_a_status.position = 0;
+	main_theme_b_status.playing = false;
+	main_theme_b_status.position = 0;
+
+	// Activate colors
+	send_packet("RUN", 0, "fixed", "000000"); // Turn everything off, to begin with
+
+	send_packet("RUN", 1, "fixed", "110011");
+	send_packet("RUN", 2, "fixed", "110011");
+	send_packet("RUN", 3, "fixed", "110011");
+
+	send_packet("RUN", 4, "fixed", "004400");
+	send_packet("RUN", 5, "fixed", "003410");
+
+	send_packet("RUN", 6, "fixed", "000044");
+	send_packet("RUN", 7, "fixed", "000044");
+	send_packet("RUN", 8, "fixed", "000044");
+
+	send_packet("RUN", 9, "fixed", "111111");
+	send_packet("RUN", 10, "fixed", "111111");
+	send_packet("RUN", 11, "fixed", "111111");
+}
+
+void charriots_deactivate(void)
+{
+	// Mute all channels
+	fluid_synth_cc(synth, 0, 123, 0);
+	fluid_synth_cc(synth, 1, 123, 0);
+	fluid_synth_cc(synth, 2, 123, 0);
+	fluid_synth_cc(synth, 3, 123, 0);
+}
+
 
 void charriots_packet_received_thread(void* data);
 
 void charriots_packet_received(struct juggle_packet_t* packet)
 {
-	// Allocate memory for using packet in thread
-	struct juggle_packet_t* packet_copy = (struct juggle_packet_t*) malloc(sizeof(struct juggle_packet_t));
-	*packet_copy = *packet;
-
-	bool USE_THREADS = false;
-
-	if (USE_THREADS)
-	{
-		// Start thread for handling packets (new thread allows us to use sleep.)
-		pthread_t thread;
-		int result = pthread_create(&thread, NULL, (void *) &charriots_packet_received_thread, (void *) packet_copy);
-		if (result)
-			print_string("Starting thread failed, error code %i", result);
-	}
-	else
-		charriots_packet_received_thread(packet_copy);
-}
-
-void charriots_activate(void)
-{
-    // Load the instruments at the right channel
-	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 7);
-	fluid_synth_program_select(synth, 1, fluid_font_id, 0, 18);
-	fluid_synth_program_select(synth, 2, fluid_font_id, 0, 42);
-	//fluid_synth_program_select(synth, 0, fluid_font_id, 0, 18); // accordeon/organ
-	main_theme_position = 0;
-	main_theme_playing = false;
-}
-
-void charriots_packet_received_thread(void* data)
-{
-    struct juggle_packet_t* packet = (struct juggle_packet_t*) data;
-
 	print_string("Packet received: %i %s %s %s\n", packet->ball, packet->action, packet->param1, packet->param2);
 
     // Ball 1-3 caught: guitar strings for intro
@@ -161,56 +182,15 @@ void charriots_packet_received_thread(void* data)
 		// 'Reboot' note (off and on again.)
         fluid_synth_noteoff(synth, 0, D_FLAT__Db3);
         fluid_synth_noteon(synth, 0, D_FLAT__Db3, 100);
-//        usleep(1000 * 1000);
-//        fluid_synth_noteoff(synth, 0, D_FLAT__Db3);
     }
 
     // Ball 4-5 Play the intro
-	if (strcmp(packet->action, "THROWN") == 0 && packet->ball >= 4 && packet->ball <= 5)
-    {
-        fluid_synth_noteon(synth, 1, D_FLAT__Db4, 100);
-        usleep(1000 * 1000);
-        fluid_synth_noteoff(synth, 1, D_FLAT__Db4);
-
-        // TODO: trigger noteoff when the ball has been caught.
-        //       but at maximum sound duration (in case caught packet hasn't been received)
-        //       Keep table of progress for each player.
-    }
+	one_ball_engine(packet, 4, 1, D_FLAT__Db4);
+	one_ball_engine(packet, 5, 1, D_FLAT__Ab4);
 
 	// Ball 6-8: main theme
-	if (packet->ball >= 6 && packet->ball <= 8)
-	{
-		int note = main_theme_b[main_theme_position].note;
+	three_ball_engine(packet, 6, 7, 8, 2, main_theme_a, &main_theme_a_status, MAIN_THEME_A_COUNT);
 
-		if (strcmp(packet->action, "THROWN") == 0 && !main_theme_playing)
-		{
-			main_theme_playing = true;
-			fluid_synth_noteoff(synth, 2, note);
-			fluid_synth_noteon(synth, 2, note, 100);
-		}
-		else if (strcmp(packet->action, "CAUGHT*") == 0 && main_theme_playing)
-		{
-			// When 6-8 are in hand -> stop sound
-			if (! juggle_states[6].in_free_fall && ! juggle_states[7].in_free_fall && ! juggle_states[8].in_free_fall)
-			{
-				main_theme_playing = false;
-				fluid_synth_noteoff(synth, 2, note);
-			}
-		}
-		else if (strcmp(packet->action, "CAUGHT") == 0 && main_theme_playing)
-		{
-			// When 6-8 are in hand -> stop sound, consider caught and increase playing index
-			if (! juggle_states[6].in_free_fall && ! juggle_states[7].in_free_fall && ! juggle_states[8].in_free_fall)
-			{
-				main_theme_playing = false;
-				main_theme_position = (main_theme_position + 1) % MAIN_THEME_COUNT_B;
-				fluid_synth_noteoff(synth, 2, note);
-			}
-		}
-	}
-
-    // Free packet (used by this thread only)
-    free(packet);
+	// Ball 7-9: main theme b
+	three_ball_engine(packet, 9, 10, 11, 3, main_theme_b, &main_theme_b_status, MAIN_THEME_B_COUNT);
 }
-
-

@@ -50,6 +50,9 @@ void delay_ms(unsigned int ms)
 
 // ===========================[ Globals ]===================================
 
+// Minimum duration before being sure that the ball really left our hand.
+#define MIN_FREE_FALL_DURATION 10
+
 #define HISTORY_SIZE 10 // Keep 10 samples in  history
 #define HISTORY_SKIP 50 // Store 1, every 100 samples
 volatile unsigned char __x_history[HISTORY_SIZE];
@@ -314,11 +317,16 @@ inline bool adc_main_loop()
 		{
 			__in_free_fall_counter ++;
 
-			if (__in_free_fall_counter > 3) // Need to have 30 samples in free fall before being sure...
+			if (__in_free_fall_counter > 3) // Need to have 3 samples in free fall before being sure...
 			{
 				__in_free_fall = true;
 				leave_hand();
 			}
+
+			// When we reached the min free fall duration, we can be sure that
+			// the ball really left our hand.
+			if (__in_free_fall_counter == MIN_FREE_FALL_DURATION)
+				usart_send_packet("IN_FREE_FALL", NULL, NULL);
 		}
 
 		// Free fall doesn't count as being on the table. Even if this
@@ -386,7 +394,7 @@ void enter_hand()
 	// Any decent flight should take more than 60 counts.
 	// Ignore others. (Probably some noise from holding the balls
 	// in your hand.)
-	if (__free_fall_duration > 10)
+	if (__free_fall_duration > MIN_FREE_FALL_DURATION)
 	{
 		// USART Feedback
 		usart_send_packet("CAUGHT", buffer, NULL);
