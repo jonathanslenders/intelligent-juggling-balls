@@ -5,21 +5,21 @@
 #define NOTE_COUNT 14
 int notes[] =
 {
-	G_MAJOR__C4,
-	G_MAJOR__D4,
-	G_MAJOR__E4,
-	G_MAJOR__F4,
-	G_MAJOR__G4,
-	G_MAJOR__A4,
-	G_MAJOR__B4,
+	C_MAJOR__C4,
+	C_MAJOR__D4,
+	C_MAJOR__E4,
+	C_MAJOR__F4,
+	C_MAJOR__G4,
+	C_MAJOR__A4,
+	C_MAJOR__B4,
 
-	G_MAJOR__C5,
-	G_MAJOR__D5,
-	G_MAJOR__E5,
-	G_MAJOR__F5,
-	G_MAJOR__G5,
-	G_MAJOR__A5,
-	G_MAJOR__B5,
+	C_MAJOR__C5,
+	C_MAJOR__D5,
+	C_MAJOR__E5,
+	C_MAJOR__F5,
+	C_MAJOR__G5,
+	C_MAJOR__A5,
+	C_MAJOR__B5,
 };
 
 void c_major_activate(void)

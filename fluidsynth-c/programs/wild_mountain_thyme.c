@@ -59,7 +59,7 @@ struct theme_note_t theme[] =
 
 void wild_mountain_thyme_activate(void)
 {
-	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 74);
+	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 109);
 
 	fluid_synth_cc(synth, 0, 10, 64); /* 10=pan, between 0 and 127 */
 	fluid_synth_cc(synth, 0, 7, 127); /* 7=volume, between 0 and 127 */

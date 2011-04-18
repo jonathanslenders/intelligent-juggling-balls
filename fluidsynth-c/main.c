@@ -23,6 +23,7 @@
 #include "programs/wild_mountain_thyme.h"
 #include "programs/percussion.h"
 #include "programs/c_major.h"
+#include "programs/hobbit.h"
 
 
 /* ===============================[ Globals ]============================ */
@@ -234,17 +235,17 @@ void init_fluidsynth()
 {
 	fluid_settings = new_fluid_settings();
 
-    /* Set the synthesizer settings, if necessary */
+    // Set the synthesizer settings, if necessary
     synth = new_fluid_synth(fluid_settings);
 
-	/* Initialize audio driver */
+	// Initialize audio driver
     fluid_settings_setstr(fluid_settings, "audio.driver", "alsa");
     adriver = new_fluid_audio_driver(fluid_settings, synth);
 
-	/* Load sound font */
+	// Load sound font
 	fluid_font_id = fluid_synth_sfload(synth, "/usr/share/sounds/sf2/FluidR3_GM.sf2", 1);
 
-	/* Test sound ;) */
+	// Test sound ;)
 	int i;
 	for (i = 0; i < 2; i ++)
     {
@@ -339,6 +340,12 @@ struct juggle_program_t PROGRAMS[] = {
 			charriots_packet_received,
 		},
 		{
+			"The hobbit theme",
+			hobbit_activate,
+            hobbit_deactivate,
+			hobbit_packet_received,
+		},
+		{
 			"Percussion",
 			percussion_activate,
             percussion_deactivate,
@@ -372,7 +379,7 @@ int serial_port_open(void)
 		cfsetispeed(&options, B9600);
 		options.c_cflag |= (CLOCAL | CREAD);
 		options.c_lflag |= ICANON;
-		options.c_cc[VMIN] = 1;   /* blocking read until 1 char received */
+		options.c_cc[VMIN] = 1;   // blocking read until 1 char received
 //		options.c_cflag &= ~ CSTOPB;
 		options.c_cflag &= ~ PARENB;
 		tcsetattr(serial_port, TCSANOW, &options);
@@ -436,10 +443,7 @@ void data_read_loop(void*ptr)
 				struct juggle_packet_t packet;
 
 				if (parse_packet(buffer2, &packet))
-				{
-	//packet.ball = 6;
 					process_packet(&packet);
-					}
 			}
 
 			// Flush stdout for debugging
@@ -524,12 +528,12 @@ void simulate_catch(int ball)
 
 int main(void)
 {
-	/* Initialize everything */
+	// Initialize everything
 	serial_port_open();
 	init_fluidsynth();
 	activate_program(& PROGRAMS[1]);
 
-	/* Signal handlers */
+	// Signal handlers
 	signal (SIGINT, (void*)sigint_handler);
 
 	// Start data read thread
