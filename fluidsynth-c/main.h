@@ -4,6 +4,7 @@
 #include <fluidsynth.h>
 
 #include <curses.h> /* ncurses interface */
+#include <time.h> /* for clock() */
 
 // Music notes definitions
 
@@ -80,6 +81,10 @@ struct juggle_ball_state_t
 	int throws;
 	int catches;
 	char last_run_command[256];
+
+	// Ping test
+	clock_t ping_sent;
+	int ping_time; // millisec
 };
 
 extern struct juggle_ball_state_t juggle_states[BALL_COUNT];

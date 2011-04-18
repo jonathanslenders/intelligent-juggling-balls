@@ -8,6 +8,7 @@
 #include <pthread.h> /* posix threading */
 #include <stdarg.h> /* for variadic functions */
 #include <stdlib.h> /* for malloc, free, exit */
+#include <time.h> /* for clock() */
 
 #include <curses.h> /* ncurses interface, also defines boolean types */
 
@@ -282,7 +283,29 @@ void test_app1_packet_received(struct juggle_packet_t* packet)
 void ping_activate(void)
 {
     send_packet("PING", 0, NULL, NULL);
+	clock_t sent = clock();
+
+	int i;
+	for (i = 0; i < BALL_COUNT; i ++)
+	{
+		juggle_states[i].ping_sent = sent;
+		juggle_states[i].ping_time = 0;
+	}
 }
+
+void ping_packet_received(struct juggle_packet_t* packet)
+{
+	clock_t received = clock();
+
+	if (strcmp(packet->action, "PONG") == 0 && packet->ball >= 1 && packet->ball <= BALL_COUNT)
+	{
+		print_string("Pong received (ball %i)", packet->ball);
+		clock_t sent = juggle_states[packet->ball - 1].ping_sent;
+		int duration = (received - sent) / (CLOCKS_PER_SEC/1000); // millisec
+		juggle_states[packet->ball - 1].ping_time = duration;
+	}
+}
+
 
 /* *** 3: Identify *** */
 void identify_activate(void)
@@ -319,7 +342,7 @@ struct juggle_program_t PROGRAMS[] = {
             "Ping",
             ping_activate,
             NULL,
-            NULL,
+            ping_packet_received,
         },
         {
             "Identify",
@@ -464,13 +487,14 @@ void print_status_window(void)
 	for (i = 0; i < BALL_COUNT; i++)
 	{
 		char buffer[256];
-		snprintf(buffer, 256, "%3i  %5fv     %-3s     %-3s    %5i     %5i     %s",
+		snprintf(buffer, 256, "%3i  %5fv     %-3s     %-3s    %5i     %5i  %5ims  %s",
 						i+1, 
 						juggle_states[i].voltage,
 						(juggle_states[i].in_free_fall ? "Yes": "No"),
 						(juggle_states[i].on_table ? "Yes": "No"),
 						juggle_states[i].throws,
 						juggle_states[i].catches,
+						juggle_states[i].ping_time,
 						juggle_states[i].last_run_command 
 						);
 		mvwprintw(status_window, 2+i, 1, buffer);
@@ -481,7 +505,7 @@ void print_status_window(void)
 	wattron(status_window, COLOR_PAIR(1));
 	mvwprintw(status_window, 0, 4, "Juggling balls");
 	wattroff(status_window, COLOR_PAIR(1));
-	mvwprintw(status_window, 1, 1, "Ball | Power | In air | On table | Throws | Catches | Program");
+	mvwprintw(status_window, 1, 1, "Ball | Power | In air | On table | Throws | Catches | Ping | Program");
 
 	wrefresh(status_window);
 }
@@ -562,7 +586,7 @@ int main(void)
 	//halfdelay(1);             // Nonblocking getch
 
 	// Status window
-	status_window = newwin(20, 78, 1, 1);
+	status_window = newwin(20, 84, 1, 1);
 
 	// Serial window
 	serial_window = newwin(18, 60, 22, 0);
