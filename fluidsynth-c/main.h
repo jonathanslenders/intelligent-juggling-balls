@@ -29,7 +29,7 @@
 #define D_FLAT__Ab5 80
 #define D_FLAT__Bb5 82
 
-// C Scale
+// C sharp Scale
 
 #define G_SHARP__Cs4 61
 #define G_SHARP__D4 62
@@ -46,6 +46,26 @@
 #define G_SHARP__G5 79
 #define G_SHARP__A5 81
 #define G_SHARP__B5 83
+
+
+// C majar scale
+
+#define G_MAJOR__C4 60
+#define G_MAJOR__D4 62
+#define G_MAJOR__E4 64
+#define G_MAJOR__F4 65
+#define G_MAJOR__G4 67
+#define G_MAJOR__A4 69
+#define G_MAJOR__B4 71
+
+#define G_MAJOR__C5 72
+#define G_MAJOR__D5 74
+#define G_MAJOR__E5 76
+#define G_MAJOR__F5 77
+#define G_MAJOR__G5 79
+#define G_MAJOR__A5 81
+#define G_MAJOR__B5 83
+
 
 
 // State machine
