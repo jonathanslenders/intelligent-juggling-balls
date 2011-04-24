@@ -14,8 +14,7 @@
 
 // ******** __ Ball config __ *******
 
-#define BALL_ID 1 // SHOULD BE BETWEEN 1 and 255
-#define BALL_ID_STR "1"
+#define BALL_ID_STR "3" // SHOULD BE BETWEEN 1 and 255
 
 // ******** __ end of ball config __ *******
 
@@ -52,10 +51,10 @@ void delay_ms(unsigned int ms)
 // ===========================[ Globals ]===================================
 
 // Minimum duration before being sure that the ball really left our hand.
-#define MIN_FREE_FALL_DURATION 10
+#define MIN_FREE_FALL_DURATION 30
 
 #define HISTORY_SIZE 10 // Keep 10 samples in  history
-#define HISTORY_SKIP 50 // Store 1, every 100 samples
+#define HISTORY_SKIP 100 // Store 1, every 100 samples
 volatile unsigned char __x_history[HISTORY_SIZE];
 volatile unsigned char __y_history[HISTORY_SIZE];
 volatile unsigned char __z_history[HISTORY_SIZE];
