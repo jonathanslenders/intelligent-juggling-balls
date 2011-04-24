@@ -44,7 +44,7 @@ class XbeeInterface(Thread):
         self._engine = engine
         
         # Initialize USART interface
-        self._interface = serial.Serial('/dev/ttyUSB2', baudrate=9600, timeout=2)
+        self._interface = serial.Serial('/dev/ttyUSB1', baudrate=9600, timeout=2)
 
     def stop(self):
         self._run = False

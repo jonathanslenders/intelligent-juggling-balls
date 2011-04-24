@@ -16,7 +16,7 @@
 
 #include <fluidsynth.h> /* For the MIDI synthesizer */
 
-#define PORT_NAME "/dev/ttyUSB0"
+#define PORT_NAME "/dev/ttyUSB2"
 
 #include "main.h"
 
@@ -165,7 +165,7 @@ void process_packet(struct juggle_packet_t* packet)
 		// Switch juggle ball state register
 		if (ball > 0)
 		{
-			if (strcmp(packet->action, "CAUGHT") == 0 || strcmp(packet->action, "CAUGHT") == 0)
+			if (strcmp(packet->action, "CAUGHT") == 0 || strcmp(packet->action, "CAUGHT*") == 0)
 			{
 				juggle_states[ball-1].in_free_fall = false;
 				juggle_states[ball-1].on_table = false;
@@ -306,6 +306,12 @@ void ping_packet_received(struct juggle_packet_t* packet)
 	}
 }
 
+/* *** Self test ***/
+
+void self_test_activate(void)
+{
+    send_packet("SELFTEST", 0, NULL, NULL);
+}
 
 /* *** 3: Identify *** */
 void identify_activate(void)
@@ -330,7 +336,7 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 7
+#define PROGRAMS_COUNT 9
 struct juggle_program_t PROGRAMS[] = {
 		{
 			"test app 1",
@@ -344,6 +350,12 @@ struct juggle_program_t PROGRAMS[] = {
             NULL,
             ping_packet_received,
         },
+		{
+			"Self test",
+			self_test_activate,
+			NULL,
+			NULL,
+		},
         {
             "Identify",
             identify_activate,
@@ -594,7 +606,7 @@ int main(void)
 	//wsetscrreg(serial_window, 1, 14);
 
     // Programs window
-    programs_window = newwin(10, 60, 40, 0);
+    programs_window = newwin(15, 60, 40, 0);
 
 	// Curses GUI loop
 	while(true)
