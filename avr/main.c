@@ -28,7 +28,8 @@
 // bits for this, see Makefile) and then select the right value here. F_CPU is
 // needed for the delay loop.
 //#define F_CPU 1000000UL  // 1 MHz
-#define F_CPU 8000000UL
+//#define F_CPU 8000000UL
+#define F_CPU 16000000UL
 
 #include <util/delay.h>
 
@@ -91,7 +92,10 @@ volatile void (*__timer_tick_callback)(void) = &dummy_callback;
 
 
 // Accellerometer center values (measured in free fall.)
-#define Z_CENTER 120
+//#define Z_CENTER 120
+//#define Y_CENTER 128
+//#define X_CENTER 128
+#define Z_CENTER 128
 #define Y_CENTER 128
 #define X_CENTER 128
 
@@ -199,14 +203,14 @@ inline unsigned char do_adc_conversion()
 inline unsigned char get_z_accelero()
 {
 	// z -axis
-	ADMUX = _BV(REFS0) | _BV(ADLAR) | 0; // Read first channel
+	ADMUX = _BV(REFS0) | _BV(ADLAR) | 2; // Read first channel
 	return do_adc_conversion();
 }
 
 inline unsigned char get_y_accelero()
 {
 	// y -axis
-	ADMUX = _BV(REFS0) | _BV(ADLAR) | 1; // Read second channel
+	ADMUX = _BV(REFS0) | _BV(ADLAR) | 3; // Read second channel
 	return do_adc_conversion();
 }
 
@@ -214,7 +218,7 @@ inline unsigned char get_y_accelero()
 inline unsigned char get_x_accelero()
 {
 	// x -axis
-	ADMUX = _BV(REFS0) | _BV(ADLAR) | 2; // Read third channel
+	ADMUX = _BV(REFS0) | _BV(ADLAR) | 1; // Read third channel
 	return do_adc_conversion();
 }
 
@@ -223,7 +227,7 @@ inline bool adc_main_loop()
 	// z-axis is in free fall, when it's value floats around 120
 	// y-axis is in free fall, when it's value floats around 128
 	// x-axis is in free fall, when it's value floats around 128
-	#define PRECISION 12
+	#define PRECISION 8
 
 	#define Z_MIN (Z_CENTER - PRECISION)
 	#define Z_MAX (Z_CENTER + PRECISION)
@@ -499,9 +503,9 @@ int lookup_table_8_bit [] = {
 #define LED_ON_VALUE 255
 #define LED_OFF_VALUE 0
 
-#define BLUE_LED OCR2A
-#define RED_LED OCR1B
-#define GREEN_LED OCR1A
+#define RED_LED OCR0B
+#define GREEN_LED OCR1B
+#define BLUE_LED OCR1A
 
 inline void green_led_on() { GREEN_LED = lookup_table_8_bit[15]; }
 inline void blue_led_on() { BLUE_LED = lookup_table_8_bit[15]; }
@@ -774,6 +778,35 @@ void (*program_pointers [])(char*) = {
 };
 
 
+void self_test(void)
+{
+	// Disable interrupts
+	cli();
+
+	// Blink all colors, 5sec each
+	int i;
+	for (i = 0; i < 3; i ++)
+	{
+		// Red
+		all_leds_off();
+		red_led_on();
+		_delay_ms(5000);
+
+		// Green
+		all_leds_off();
+		green_led_on();
+		_delay_ms(5000);
+
+		// Blue
+		all_leds_off();
+		blue_led_on();
+		_delay_ms(5000);
+	}
+
+	// Enable interrupts again
+	sei();
+}
+
 
 // ===========================[ Input data parser ]===================================
 
@@ -796,6 +829,12 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 		else if (strcmp(action, "PING") == 0)
 		{
 			usart_send_packet("PONG", NULL, NULL);
+		}
+
+		// LED test
+		else if (strcmp(action, "SELFTEST") == 0)
+		{
+			self_test();
 		}
 
 		// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
@@ -922,16 +961,24 @@ int main(void)
 
 	// Set up PWM
 
-	// Timer 1 (16bit)
-	DDRB |= _BV(PB1) | _BV(PB2); // (PWM led dimmers)
-	TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM10);
-	TCCR1B = _BV(WGM12) | _BV(CS12);
+	// Timer 0 (red - 8bit)
+	DDRD |= _BV(PD5);
+	TCCR0A = _BV(COM0B1) | _BV(COM0B0) | _BV(WGM00) | _BV(WGM01);
+	TCCR0B = _BV(CS02);
 			// Fast PWM / 8 bit
-			// Clear on compare (both OC1A and OC1B)
+			// Set on compare (COM0A1)
 			// 256 prescaling
 
-	// Timer 2 (8bit)
-	DDRB |= _BV(PB3); // OC2A (PWM led dimmer)
+	// Timer 1 (green and blue leds - 16bit)
+	DDRB |= _BV(PB1) | _BV(PB2); // (PWM led dimmers)
+	TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(COM1A0) | _BV(COM1B0) | _BV(WGM10);
+	TCCR1B = _BV(WGM12) | _BV(CS12);
+			// Fast PWM / 8 bit
+			// Set on compare (both OC1A and OC1B)
+			// 256 prescaling
+
+	// Timer 2 (interrupt timer - 8bit)
+	//DDRB |= _BV(PB3); // OC2A (PWM led dimmer)
 	DDRD |= _BV(PD3); // OC2B (output for debugging)
 	TCCR2A = _BV(COM2A1) | _BV(COM2B1) | _BV(WGM01) | _BV(WGM00);
 	TCCR2B = _BV(CS22) | _BV(CS21);
@@ -994,19 +1041,38 @@ int main(void)
 		adc_main_loop();
 	}
 
+	// Simple 5sec blinking light (speed test)
+	while(1)
+	{
+		all_leds_off();
+		red_led_on();
+		_delay_ms(5000);
+		red_led_off();
+		_delay_ms(5000);
+	}
+
+	// Test accellero loop
+	while(0)
+	{
+		_delay_ms(100);
+		unsigned char x = get_x_accelero();
+		unsigned char y = get_y_accelero();
+		unsigned char z = get_z_accelero();
+		char buffer[265];
+		sprintf(buffer, "x=%i y=%i z=%i\r\n", x, y, z);
+		usart_send_string(buffer);
+	}
+
 	// Test code: dimmer example loop
 	all_leds_off();
 	while(1)
 	{
-		//for (i = 10; i < 256; i ++)
-		for (i = 0; i < 16; i ++)
+		for (i = 0; i < 256; i ++)
 		{
-			OCR1B = lookup_table_8_bit[i];
-
-			//OCR1B = i;
-			delay_ms(80);
+			red_led_percentage(i);
+			delay_ms(8);
 		}
-			delay_ms(80);
+		delay_ms(80);
 	}
 
 	return 0;
