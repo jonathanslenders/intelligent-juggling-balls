@@ -16,7 +16,7 @@
 
 #include <fluidsynth.h> /* For the MIDI synthesizer */
 
-#define PORT_NAME "/dev/ttyUSB2"
+#define PORT_NAME "/dev/ttyUSB1"
 
 #include "main.h"
 
@@ -313,6 +313,18 @@ void self_test_activate(void)
     send_packet("SELFTEST", 0, NULL, NULL);
 }
 
+/* *** ADC test ***/
+void adc_test_activate(void)
+{
+	send_packet("ADCTEST", 0, NULL, NULL);
+}
+
+void adc_test_packet_received(struct juggle_packet_t* packet)
+{
+	if (strcmp(packet->action, "ADC") == 0)
+		print_string("ball %i: ADC %s %s", packet->ball, packet->param1, packet->param2);
+}
+
 /* *** 3: Identify *** */
 void identify_activate(void)
 {
@@ -336,7 +348,7 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 9
+#define PROGRAMS_COUNT 10
 struct juggle_program_t PROGRAMS[] = {
 		{
 			"test app 1",
@@ -355,6 +367,12 @@ struct juggle_program_t PROGRAMS[] = {
 			self_test_activate,
 			NULL,
 			NULL,
+		},
+		{
+			"ADC test",
+			adc_test_activate,
+			NULL,
+			adc_test_packet_received,
 		},
         {
             "Identify",
