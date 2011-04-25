@@ -14,7 +14,7 @@
 
 // ******** __ Ball config __ *******
 
-#define BALL_ID_STR "1" // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID_STR "9" // SHOULD BE BETWEEN 1 and 255
 
 // ******** __ end of ball config __ *******
 
@@ -51,7 +51,7 @@ void delay_ms(unsigned int ms)
 // ===========================[ Globals ]===================================
 
 // Minimum duration before being sure that the ball really left our hand.
-#define MIN_FREE_FALL_DURATION 30
+#define MIN_FREE_FALL_DURATION 60
 
 #define HISTORY_SIZE 10 // Keep 10 samples in  history
 #define HISTORY_SKIP 50 // Store 1, every 50 samples
@@ -222,6 +222,20 @@ inline unsigned char get_x_accelero()
 	return do_adc_conversion();
 }
 
+void read_voltage()
+{
+	// battery voltage
+	ADMUX = _BV(REFS0) | _BV(ADLAR) | 6; // Read sixth channel
+	unsigned char adc6 = do_adc_conversion();
+
+	float aref = 3.3; // From voltage regulator
+	int result = 1000.0 * 43.0 * adc6 * aref / (10.0 * 255);
+
+	char buffer[256];
+	sprintf(buffer, "%imV %i", result, adc6);
+	usart_send_packet("VOLTAGE", buffer, NULL);
+}
+
 inline bool adc_main_loop()
 {
 	// z-axis is in free fall, when it's value floats around 120
@@ -326,21 +340,21 @@ inline bool adc_main_loop()
 
 	if (in_free_fall)
 	{
+		__in_free_fall_counter ++;
+
 		if (! __in_free_fall)
 		{
-			__in_free_fall_counter ++;
-
-			if (__in_free_fall_counter > 3) // Need to have 3 samples in free fall before being sure...
+			if (__in_free_fall_counter > 5) // Need to have 5 samples in free fall before being sure...
 			{
 				__in_free_fall = true;
 				leave_hand();
 			}
-
-			// When we reached the min free fall duration, we can be sure that
-			// the ball really left our hand.
-			if (__in_free_fall_counter == MIN_FREE_FALL_DURATION)
-				usart_send_packet("IN_FREE_FALL", NULL, NULL);
 		}
+
+		// When we reached the min free fall duration, we can be sure that
+		// the ball really left our hand.
+		if (__in_free_fall_counter == MIN_FREE_FALL_DURATION)
+			usart_send_packet("IN_FREE_FALL", NULL, NULL);
 
 		// Free fall doesn't count as being on the table. Even if this
 		// is measured as no change in applied force. Reset counter to avoid
@@ -873,6 +887,12 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 		else if (strcmp(action, "ADCTEST") == 0)
 		{
 			adc_test();
+		}
+
+		// Test battery
+		else if (strcmp(action, "BATTTEST") == 0)
+		{
+			read_voltage();
 		}
 
 		// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
