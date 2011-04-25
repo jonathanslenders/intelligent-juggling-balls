@@ -20,4 +20,8 @@ void one_ball_engine(struct juggle_packet_t* packet, int ball, int channel, int 
 void three_ball_engine(struct juggle_packet_t* packet, int ball1, int ball2, int ball3,
 			int channel, struct theme_note_t* theme, struct theme_status_t* status, int theme_count);
 
+void on_catch_engine(struct juggle_packet_t* packet, int ball, int channel, struct theme_note_t* theme,
+		struct theme_status_t* status, int theme_count);
+
+
 #endif

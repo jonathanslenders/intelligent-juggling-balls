@@ -54,3 +54,13 @@ void three_ball_engine(struct juggle_packet_t* packet, int ball1, int ball2, int
 }
 
 
+void on_catch_engine(struct juggle_packet_t* packet, int ball, int channel, struct theme_note_t* theme,
+		struct theme_status_t* status, int theme_count)
+{
+	if (packet->ball == ball && strcmp(packet->action, "CAUGHT") == 0)
+	{
+		int note = theme[status->position].note;
+		fluid_synth_noteon(synth, channel, note, 100);
+		status->position = (status->position + 1) % theme_count;
+	}
+}

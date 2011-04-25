@@ -186,7 +186,14 @@ void charriots_packet_received(struct juggle_packet_t* packet)
 	one_ball_engine(packet, 5, 1, D_FLAT__Ab4);
 
 	// Ball 6-8: main theme
-	three_ball_engine(packet, 6, 7, 8, 2, main_theme_a, &main_theme_a_status, MAIN_THEME_A_COUNT);
+//	three_ball_engine(packet, 6, 7, 8, 2, main_theme_a, &main_theme_a_status, MAIN_THEME_A_COUNT);
+
+on_catch_engine(packet, 6, 2, main_theme_a, &main_theme_a_status, MAIN_THEME_A_COUNT);
+on_catch_engine(packet, 7, 2, main_theme_a, &main_theme_a_status, MAIN_THEME_A_COUNT);
+on_catch_engine(packet, 8, 2, main_theme_a, &main_theme_a_status, MAIN_THEME_A_COUNT);
+
+
+
 
 	// Ball 7-9: main theme b
 	three_ball_engine(packet, 9, 10, 11, 3, main_theme_b, &main_theme_b_status, MAIN_THEME_B_COUNT);

@@ -16,7 +16,7 @@
 
 #include <fluidsynth.h> /* For the MIDI synthesizer */
 
-#define PORT_NAME "/dev/ttyUSB1"
+#define PORT_NAME "/dev/ttyUSB0"
 
 #include "main.h"
 
@@ -187,6 +187,12 @@ void process_packet(struct juggle_packet_t* packet)
 				juggle_states[ball-1].on_table = false;
 				juggle_states[ball-1].in_free_fall = false;
 			}
+			else if (strcmp(packet->action, "VOLTAGE") == 0)
+			{
+				int voltage;
+				if (sscanf(packet->param1, "%i", &voltage))
+					juggle_states[ball-1].voltage = voltage;
+			}
 		}
 
 		// Send packet to active program
@@ -306,6 +312,16 @@ void ping_packet_received(struct juggle_packet_t* packet)
 	}
 }
 
+/* *** Battery test ***/
+void battery_test_activate(void)
+{
+    send_packet("BATTTEST", 0, NULL, NULL);
+}
+void battery_test_packet_received(struct juggle_packet_t* packet)
+{
+	//print_string("ball %i: %s %s", packet->ball, packet->param1, packet->param2);
+}
+
 /* *** Self test ***/
 
 void self_test_activate(void)
@@ -348,20 +364,20 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 10
+#define PROGRAMS_COUNT 9
 struct juggle_program_t PROGRAMS[] = {
-		{
-			"test app 1",
-			test_app1_activate,
-            NULL,
-			test_app1_packet_received,
-		},
         {
             "Ping",
             ping_activate,
             NULL,
             ping_packet_received,
         },
+		{
+			"Battery test",
+			battery_test_activate,
+			NULL,
+			battery_test_packet_received,
+		},
 		{
 			"Self test",
 			self_test_activate,
@@ -517,7 +533,7 @@ void print_status_window(void)
 	for (i = 0; i < BALL_COUNT; i++)
 	{
 		char buffer[256];
-		snprintf(buffer, 256, "%3i  %5fv     %-3s     %-3s    %5i     %5i  %5ims  %s",
+		snprintf(buffer, 256, "%3i %5imv     %-3s     %-3s    %5i     %5i  %5ims  %s",
 						i+1, 
 						juggle_states[i].voltage,
 						(juggle_states[i].in_free_fall ? "Yes": "No"),
@@ -585,7 +601,7 @@ int main(void)
 	// Initialize everything
 	serial_port_open();
 	init_fluidsynth();
-	activate_program(& PROGRAMS[1]);
+	activate_program(& PROGRAMS[0]);
 
 	// Signal handlers
 	signal (SIGINT, (void*)sigint_handler);

@@ -75,7 +75,7 @@
 
 struct juggle_ball_state_t
 {
-	double voltage;
+	int voltage; // mV
 	bool in_free_fall;
 	bool on_table;
 	int throws;

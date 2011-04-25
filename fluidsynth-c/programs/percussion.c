@@ -36,13 +36,14 @@ void percussion_deactivate(void)
 void percussion_packet_received(struct juggle_packet_t* packet)
 {
 	// Midi channel 10 is always reserved for percussion
+//	if (strcmp(packet->action, "CAUGHT") == 0 && packet->ball >= 1 && packet->ball <= PERCUSSION_INSTRUMENT_COUNT)
+//        fluid_synth_noteoff(synth, 10, percussion_instruments[packet->ball-1]);
+//
+//	if (strcmp(packet->action, "CAUGHT*") == 0 && packet->ball >= 1 && packet->ball <= PERCUSSION_INSTRUMENT_COUNT)
+//        fluid_synth_noteoff(synth, 10, percussion_instruments[packet->ball-1]);
+
+//	if (strcmp(packet->action, "THROWN") == 0 && packet->ball >= 1 && packet->ball <= PERCUSSION_INSTRUMENT_COUNT)
 	if (strcmp(packet->action, "CAUGHT") == 0 && packet->ball >= 1 && packet->ball <= PERCUSSION_INSTRUMENT_COUNT)
-        fluid_synth_noteoff(synth, 10, percussion_instruments[packet->ball-1]);
-
-	if (strcmp(packet->action, "CAUGHT*") == 0 && packet->ball >= 1 && packet->ball <= PERCUSSION_INSTRUMENT_COUNT)
-        fluid_synth_noteoff(synth, 10, percussion_instruments[packet->ball-1]);
-
-	if (strcmp(packet->action, "THROWN") == 0 && packet->ball >= 1 && packet->ball <= PERCUSSION_INSTRUMENT_COUNT)
         fluid_synth_noteon(synth, 10, percussion_instruments[packet->ball-1], 100);
 
 }
