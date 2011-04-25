@@ -278,6 +278,17 @@ void cleanup_fluidsynth(void)
 /* **** 1: debug **** */
 void test_app1_activate(void)
 {
+	send_packet("RUN", 0, "fade", "FFFF00:150");
+	sleep(1);
+	send_packet("RUN", 0, "fade", "00FF00:150");
+	sleep(1);
+	send_packet("RUN", 0, "fade", "00FFFF:150");
+	sleep(1);
+	send_packet("RUN", 0, "fade", "0000FF:150");
+	sleep(1);
+	send_packet("RUN", 0, "fade", "FF00FF:150");
+	sleep(1);
+	send_packet("RUN", 0, "fade", "FF0000:150");
 }
 void test_app1_packet_received(struct juggle_packet_t* packet)
 {
@@ -315,6 +326,14 @@ void ping_packet_received(struct juggle_packet_t* packet)
 /* *** Battery test ***/
 void battery_test_activate(void)
 {
+	// Reset voltage 
+	int i;
+	for (i = 0; i < BALL_COUNT; i ++)
+	{
+		juggle_states[i].voltage = 0;
+	}
+
+	// Query voltage again
     send_packet("BATTTEST", 0, NULL, NULL);
 }
 void battery_test_packet_received(struct juggle_packet_t* packet)
@@ -366,6 +385,12 @@ void activate_program(struct juggle_program_t* program)
 // List of all available programs
 #define PROGRAMS_COUNT 9
 struct juggle_program_t PROGRAMS[] = {
+//		{
+//			"Test fade",
+//			test_app1_activate,
+//			NULL,
+//			test_app1_packet_received,
+//		},
         {
             "Ping",
             ping_activate,
@@ -384,12 +409,12 @@ struct juggle_program_t PROGRAMS[] = {
 			NULL,
 			NULL,
 		},
-		{
-			"ADC test",
-			adc_test_activate,
-			NULL,
-			adc_test_packet_received,
-		},
+//		{
+//			"ADC test",
+//			adc_test_activate,
+//			NULL,
+//			adc_test_packet_received,
+//		},
         {
             "Identify",
             identify_activate,
