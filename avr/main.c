@@ -22,6 +22,11 @@
 // *** XBee Signal Strength Reader
 // http://www.makingthingstalk.com/chapter8/22/#more-22
 
+struct color_t {
+	unsigned char red;
+	unsigned char green;
+	unsigned char blue;
+};
 
 // decide which clock frequency you want (you need to set the fuse
 // bits for this, see Makefile) and then select the right value here. F_CPU is
@@ -51,7 +56,7 @@ void delay_ms(unsigned int ms)
 // ===========================[ Globals ]===================================
 
 // Minimum duration before being sure that the ball really left our hand.
-#define MIN_FREE_FALL_DURATION 30
+#define MIN_FREE_FALL_DURATION 60
 
 #define HISTORY_SIZE 10 // Keep 10 samples in  history
 #define HISTORY_SKIP 50 // Store 1, every 50 samples
@@ -67,11 +72,12 @@ volatile unsigned int __free_fall_duration = 0;
 volatile unsigned int __time_since_last_catch = 0;
 volatile bool __in_free_fall = false;
 volatile int __in_free_fall_counter = 0; // Counter 0..x for counting how many samples we are in free fall.
+volatile int __not_in_free_fall_cunter = 0; // Counter 0..x for counting how many samples we are no longer in free fall.
 
 // Moving / on table. We consider the ball to be still on a table when there
 // has not been measured any significant difference in accelleration during the
 // last X samples and when we are not in free fall.
-#define ON_TABLE_TRESHOLD 3 // Required minimal diffence to be considered a movement.
+#define ON_TABLE_TRESHOLD 4 // Required minimal diffence to be considered a movement.
 
 volatile int32_t __on_table_counter = 0; // Counter 0..x for counting how many samples the ball already is on the table.
 volatile int32_t __moving_counter = 0; // Counter 0..x for counting how many samples the ball already moving
@@ -222,12 +228,26 @@ inline unsigned char get_x_accelero()
 	return do_adc_conversion();
 }
 
+void read_voltage()
+{
+	// battery voltage
+	ADMUX = _BV(REFS0) | _BV(ADLAR) | 6; // Read sixth channel
+	unsigned char adc6 = do_adc_conversion();
+
+	float aref = 3.3; // From voltage regulator
+	int result = 1000.0 * 43.0 * adc6 * aref / (10.0 * 255);
+
+	char buffer[256];
+	sprintf(buffer, "%imV %i", result, adc6);
+	usart_send_packet("VOLTAGE", buffer, NULL);
+}
+
 inline bool adc_main_loop()
 {
 	// z-axis is in free fall, when it's value floats around 120
 	// y-axis is in free fall, when it's value floats around 128
 	// x-axis is in free fall, when it's value floats around 128
-	#define PRECISION 12
+	#define PRECISION 8
 
 	#define Z_MIN (Z_CENTER - PRECISION)
 	#define Z_MAX (Z_CENTER + PRECISION)
@@ -326,37 +346,39 @@ inline bool adc_main_loop()
 
 	if (in_free_fall)
 	{
-		if (! __in_free_fall)
-		{
-			__in_free_fall_counter ++;
-
-			if (__in_free_fall_counter > 3) // Need to have 3 samples in free fall before being sure...
-			{
-				__in_free_fall = true;
-				leave_hand();
-			}
-
-			// When we reached the min free fall duration, we can be sure that
-			// the ball really left our hand.
-			if (__in_free_fall_counter == MIN_FREE_FALL_DURATION)
-				usart_send_packet("IN_FREE_FALL", NULL, NULL);
-		}
+		__in_free_fall_counter ++;
+		__not_in_free_fall_cunter = 0;
 
 		// Free fall doesn't count as being on the table. Even if this
 		// is measured as no change in applied force. Reset counter to avoid
 		// on-table to be triggered.
 		__on_table_counter = 0;
 	}
-	// Not in free fall.
 	else
 	{
-		// Reset free fall counter
-		__in_free_fall_counter = 0;
+		__not_in_free_fall_cunter ++;
+		__in_free_fall_counter = 0; 
+	}
 
-		if (__in_free_fall)
+	if (__in_free_fall)
+	{
+		if (__not_in_free_fall_cunter > 5) // Need to have 5 samples not in free fall before being sure.
 		{
 			__in_free_fall = false;
 			enter_hand();
+		}
+	}
+	else
+	{
+		if (__in_free_fall_counter > 20) // Need to have 5 samples in free fall before being sure...
+		{
+			__in_free_fall = true;
+			leave_hand();
+
+
+//char buffer[255];
+//sprintf(buffer, "x=%i,y=%i,z=%i\r\n", x,y,z);
+//usart_send_string(buffer);
 		}
 	}
 }
@@ -435,6 +457,11 @@ ISR(TIMER2_COMPB_vect)
 	// Increase counter
 	__free_fall_duration += 1;
 	__time_since_last_catch += 1;
+
+	// When we reached the min free fall duration, we can be sure that
+	// the ball really left our hand.
+	if (__free_fall_duration == MIN_FREE_FALL_DURATION)
+		usart_send_packet("IN_FREE_FALL", NULL, NULL);
 
 	// Program callback
 	__timer_tick_callback();
@@ -516,13 +543,17 @@ int lookup_table_8_bit [] = {
 #define GREEN_LED OCR1B
 #define BLUE_LED OCR1A
 
-inline void green_led_on() { GREEN_LED = lookup_table_8_bit[15]; }
-inline void blue_led_on() { BLUE_LED = lookup_table_8_bit[15]; }
-inline void red_led_on() { RED_LED = lookup_table_8_bit[15]; }
+volatile unsigned char __red_intensity = 0;
+volatile unsigned char __green_intensity = 0;
+volatile unsigned char __blue_intensity = 0;
 
-inline void green_led_off() { GREEN_LED = lookup_table_8_bit[0]; }
-inline void blue_led_off() { BLUE_LED = lookup_table_8_bit[0]; }
-inline void red_led_off() { RED_LED = lookup_table_8_bit[0]; }
+inline void red_led_on() { RED_LED = lookup_table_8_bit[15]; __red_intensity = 255; }
+inline void green_led_on() { GREEN_LED = lookup_table_8_bit[15]; __green_intensity = 255; }
+inline void blue_led_on() { BLUE_LED = lookup_table_8_bit[15]; __blue_intensity = 255; }
+
+inline void red_led_off() { RED_LED = lookup_table_8_bit[0]; __red_intensity = 0; }
+inline void green_led_off() { GREEN_LED = lookup_table_8_bit[0]; __green_intensity = 0; }
+inline void blue_led_off() { BLUE_LED = lookup_table_8_bit[0]; __blue_intensity = 0; }
 
 void all_leds_off()
 {
@@ -538,40 +569,35 @@ void all_leds_on()
 	red_led_on();
 }
 
-	// intensity = 0 .. 15
-void green_led_intensity(unsigned char intensity)
-{
-	GREEN_LED = lookup_table_8_bit[intensity];
-}
-void blue_led_intensity(unsigned char intensity)
-{
-	BLUE_LED = lookup_table_8_bit[intensity];
-}
-void red_led_intensity(unsigned char intensity)
-{
-	RED_LED = lookup_table_8_bit[intensity];
-}
-
-
 	// percentage = 0 .. 255
+void red_led_percentage(unsigned char percentage)
+{
+	RED_LED = lookup_table_8_bit[percentage / 16];
+	__red_intensity = percentage;
+}
 void green_led_percentage(unsigned char percentage)
 {
-	green_led_intensity(percentage / 16);
+	GREEN_LED = lookup_table_8_bit[percentage / 16];
+	__green_intensity = percentage;
 }
 void blue_led_percentage(unsigned char percentage)
 {
-	blue_led_intensity(percentage / 16);
-}
-void red_led_percentage(unsigned char percentage)
-{
-	red_led_intensity(percentage / 16);
+	BLUE_LED = lookup_table_8_bit[percentage / 16];
+	__blue_intensity = percentage;
 }
 
 void all_leds_percentage(unsigned char percentage)
 {
-	red_led_intensity(percentage);
-	green_led_intensity(percentage);
-	blue_led_intensity(percentage);
+	red_led_percentage(percentage);
+	green_led_percentage(percentage);
+	blue_led_percentage(percentage);
+}
+
+void set_color(const struct color_t color)
+{
+	red_led_percentage(color.red);
+	green_led_percentage(color.green);
+	blue_led_percentage(color.blue);
 }
 
 
@@ -590,25 +616,164 @@ unsigned char hex_to_int(char c)
 }
 
 
-// -0- fixed color
-void pr_fixed_color_install(char * param)
+// *****  fixed color
+volatile struct color_t __pr_fixed_color_on_table;
+volatile struct color_t __pr_fixed_color_in_hand;
+volatile struct color_t __pr_fixed_color_up;
+volatile struct color_t __pr_fixed_color_down;
+volatile struct color_t __pr_fixed_color_catch_flash;
+
+
+volatile int pr_fixed_color_timer = 0;
+
+void pr_fixed_color_enter(bool was_throw)
 {
-	__enter_hand_callback = &dummy_callback;
-	__leave_hand_callback = &dummy_callback;
-	__timer_tick_callback = &dummy_callback;
+	if (was_throw)
+		pr_fixed_color_timer = __last_free_fall_duration / 10 + 1;
+}
 
-	// Param is supposed to be a hex_to_int color, like FF0044
-	unsigned char red = hex_to_int(param[0]) * 16 + hex_to_int(param[1]);
-	unsigned char green = hex_to_int(param[2]) * 16 + hex_to_int(param[3]);
-	unsigned char blue = hex_to_int(param[4]) * 16 + hex_to_int(param[5]);
+void pr_fixed_color_leave(void)
+{
+	// Going up (don't wait for the timer.
+	set_color(__pr_fixed_color_down);
+}
 
-	red_led_percentage(red);
-	green_led_percentage(green);
-	blue_led_percentage(blue);
+void pr_fixed_color_tick_callback(char * param)
+{
+	// TODO: add some nicer interpolation
+
+	if (__in_free_fall)
+	{
+		unsigned int halfway = __last_free_fall_duration/2;
+
+		// Going up
+		if (__free_fall_duration < halfway)
+			set_color(__pr_fixed_color_up);
+
+		// Going down
+		else
+			set_color(__pr_fixed_color_down);
+	}
+	else if (__is_on_table)
+		// On table
+		set_color(__pr_fixed_color_on_table);
+	else
+	{
+		// Catch flash
+		if (__time_since_last_catch < pr_fixed_color_timer)
+			set_color(__pr_fixed_color_catch_flash);
+
+		// In hand
+		else
+			set_color(__pr_fixed_color_in_hand);
+	}
 }
 
 
-// -1- Alternate every throw between red, green and blue
+void pr_fixed_color_install(char * param)
+{
+	int length = strlen(param);
+	__enter_hand_callback = &pr_fixed_color_enter;
+	__leave_hand_callback = &pr_fixed_color_leave;
+	__timer_tick_callback = &pr_fixed_color_tick_callback;;
+
+	// Param is supposed to be a hex_to_int color, like FF0044
+
+	// On table
+	__pr_fixed_color_on_table.red   = hex_to_int(param[0]) * 16 + hex_to_int(param[1]);
+	__pr_fixed_color_on_table.green = hex_to_int(param[2]) * 16 + hex_to_int(param[3]);
+	__pr_fixed_color_on_table.blue  = hex_to_int(param[4]) * 16 + hex_to_int(param[5]);
+
+	// In hand
+	if (length>7)
+	{
+		__pr_fixed_color_in_hand.red   = hex_to_int(param[7]) * 16 + hex_to_int(param[8]);
+		__pr_fixed_color_in_hand.green = hex_to_int(param[9]) * 16 + hex_to_int(param[10]);
+		__pr_fixed_color_in_hand.blue  = hex_to_int(param[11]) * 16 + hex_to_int(param[12]);
+	}	
+	else
+		__pr_fixed_color_in_hand = __pr_fixed_color_on_table;
+
+	// Up
+	if (length>14)
+	{
+		__pr_fixed_color_up.red   = hex_to_int(param[14]) * 16 + hex_to_int(param[15]);
+		__pr_fixed_color_up.green = hex_to_int(param[16]) * 16 + hex_to_int(param[17]);
+		__pr_fixed_color_up.blue  = hex_to_int(param[18]) * 16 + hex_to_int(param[19]);
+	}	
+	else
+		__pr_fixed_color_up = __pr_fixed_color_in_hand;
+
+	// Down
+	if (length>21)
+	{
+		__pr_fixed_color_down.red   = hex_to_int(param[21]) * 16 + hex_to_int(param[22]);
+		__pr_fixed_color_down.green = hex_to_int(param[23]) * 16 + hex_to_int(param[24]);
+		__pr_fixed_color_down.blue  = hex_to_int(param[25]) * 16 + hex_to_int(param[26]);
+	}
+	else
+		__pr_fixed_color_down = __pr_fixed_color_up;
+
+	// Catch flash
+	if (length>28)
+	{
+		__pr_fixed_color_catch_flash.red   = hex_to_int(param[28]) * 16 + hex_to_int(param[29]);
+		__pr_fixed_color_catch_flash.green = hex_to_int(param[30]) * 16 + hex_to_int(param[31]);
+		__pr_fixed_color_catch_flash.blue  = hex_to_int(param[32]) * 16 + hex_to_int(param[33]);
+	}
+	else
+		__pr_fixed_color_catch_flash = __pr_fixed_color_in_hand; // If not given -> same as in hand
+}
+
+// ***** Fade to color
+volatile unsigned char __pr_fade_to_color_start_red;
+volatile unsigned char __pr_fade_to_color_start_green;
+volatile unsigned char __pr_fade_to_color_start_blue;
+volatile unsigned char __pr_fade_to_color_end_red;
+volatile unsigned char __pr_fade_to_color_end_green;
+volatile unsigned char __pr_fade_to_color_end_blue;
+volatile unsigned int __pr_fade_to_color_time;
+volatile unsigned int __pr_fade_to_color_ticks;
+
+void pr_fade_to_color_tick_callback(void)
+{
+	if (__pr_fade_to_color_ticks < __pr_fade_to_color_time)
+	{
+		__pr_fade_to_color_ticks ++;
+
+		// Now iterpolate between start and end color 
+		float percentage = (float)__pr_fade_to_color_ticks / (float)__pr_fade_to_color_time;
+
+		red_led_percentage((int)__pr_fade_to_color_start_red + (float)(__pr_fade_to_color_end_red - __pr_fade_to_color_start_red) * percentage);
+		green_led_percentage((int)__pr_fade_to_color_start_green + (float)(__pr_fade_to_color_end_green - __pr_fade_to_color_start_green) * percentage);
+		blue_led_percentage((int)__pr_fade_to_color_start_blue + (float)(__pr_fade_to_color_end_blue - __pr_fade_to_color_start_blue) * percentage);
+	}
+}
+
+void pr_fade_to_color_install(char * param)
+{
+	// Remember start value
+	__pr_fade_to_color_start_red = __red_intensity;
+	__pr_fade_to_color_start_green = __green_intensity;
+	__pr_fade_to_color_start_blue = __blue_intensity;
+
+	// parameter like FF0044:100
+	__pr_fade_to_color_end_red = hex_to_int(param[0]) * 16 + hex_to_int(param[1]);
+	__pr_fade_to_color_end_green = hex_to_int(param[2]) * 16 + hex_to_int(param[3]);
+	__pr_fade_to_color_end_blue = hex_to_int(param[4]) * 16 + hex_to_int(param[5]);
+
+	// Fade speed
+	if (! sscanf(param+7, "%i", &__pr_fade_to_color_time))
+		__pr_fade_to_color_time = 0;
+	__pr_fade_to_color_ticks = 0;
+
+	// Callbacks
+	__enter_hand_callback = &dummy_callback;
+	__leave_hand_callback = &dummy_callback;
+	__timer_tick_callback = &pr_fade_to_color_tick_callback;
+}
+
+// *****  Alternate every throw between red, green and blue
 
 int __pr_alternate = 0;
 
@@ -616,11 +781,11 @@ void pr_alternate_enter(bool was_throw)
 {
 	// DIM leds
 	if (__pr_alternate == 0)
-		green_led_intensity(1);
+		green_led_percentage(20);
 	else if (__pr_alternate == 1)
-		blue_led_intensity(1);
+		blue_led_percentage(20);
 	else
-		red_led_intensity(1);
+		red_led_percentage(20);
 
 	if (was_throw)
 		__pr_alternate = (__pr_alternate + 1) % 3;
@@ -644,7 +809,7 @@ void pr_alternate_install(char* param)
 	__timer_tick_callback = &dummy_callback;
 }
 
-// -2- Interpolate from green to blue during a throw
+// ****  Interpolate from green to blue during a throw
 //     (not completely tested, but algorithm should work.)
 
 void pr_interpolate_tick_callback()
@@ -674,9 +839,9 @@ void pr_interpolate_install(char* param)
 }
 
 
-// -3- invisible up, comes down in blue.
+// ****** invisible up, comes down in blue.
 
-int pr_rain_drop_timer = 0;
+volatile int pr_rain_drop_timer = 0;
 
 void pr_rain_enter(bool was_throw)
 {
@@ -736,7 +901,7 @@ void pr_rain_install(char* param)
 }
 
 
-// -4- table test
+// *********  table test
 
 void pr_table_test_tick_callback()
 {
@@ -772,6 +937,7 @@ void pr_table_test_install(char* param)
 #define PROGRAM_COUNT 5
 const char* program_names[] = {
 	"fixed",
+	"fade",
 	"alternate",
 	"rain",
 	"interpolate",
@@ -780,6 +946,7 @@ const char* program_names[] = {
 
 void (*program_pointers [])(char*) = {
 	&pr_fixed_color_install,
+	&pr_fade_to_color_install,
 	&pr_alternate_install,
 	&pr_rain_install,
 	&pr_interpolate_install,
@@ -873,6 +1040,12 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 		else if (strcmp(action, "ADCTEST") == 0)
 		{
 			adc_test();
+		}
+
+		// Test battery
+		else if (strcmp(action, "BATTTEST") == 0)
+		{
+			read_voltage();
 		}
 
 		// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
@@ -1052,18 +1225,18 @@ int main(void)
 	green_led_on();
 	_delay_ms(800);
 
-
-	// Main program loop
-
-	pr_alternate_install("");
-	//pr_fixed_color_install("080000");
-//	pr_interpolate_install();
-//	pr_rain_install();
-
 	// Take 1000 samples for filling in a little history.
 	int i;
 	for(i = 0; i < 1000; i ++)
 		adc_main_loop();
+
+	// Default program
+		// light green on table
+		// purple in hand
+		// red going up
+		// blue going down
+		// catch white
+	pr_fixed_color_install("004400 880088 ff0000 0000ff ffffff");
 
 	// Send booted packet
 	usart_send_packet("BOOTED", NULL, NULL);
