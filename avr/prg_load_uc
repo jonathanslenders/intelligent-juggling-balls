@@ -1,4 +1,5 @@
 #!/bin/sh +x
 
 pfile="$1"
-avrdude -p m168 -c avrusb500 -e -U flash:w:"$pfile"
+#avrdude -p m168 -c avrusb500 -e -U flash:w:"$pfile"
+avrdude -p m328p -c avrusb500 -e -U flash:w:"$pfile"

@@ -14,8 +14,7 @@
 
 // ******** __ Ball config __ *******
 
-#define BALL_ID 1 // SHOULD BE BETWEEN 1 and 255
-#define BALL_ID_STR "1"
+#define BALL_ID_STR "1" // SHOULD BE BETWEEN 1 and 255
 
 // ******** __ end of ball config __ *******
 
@@ -52,10 +51,10 @@ void delay_ms(unsigned int ms)
 // ===========================[ Globals ]===================================
 
 // Minimum duration before being sure that the ball really left our hand.
-#define MIN_FREE_FALL_DURATION 10
+#define MIN_FREE_FALL_DURATION 30
 
 #define HISTORY_SIZE 10 // Keep 10 samples in  history
-#define HISTORY_SKIP 50 // Store 1, every 100 samples
+#define HISTORY_SKIP 50 // Store 1, every 50 samples
 volatile unsigned char __x_history[HISTORY_SIZE];
 volatile unsigned char __y_history[HISTORY_SIZE];
 volatile unsigned char __z_history[HISTORY_SIZE];
@@ -72,9 +71,10 @@ volatile int __in_free_fall_counter = 0; // Counter 0..x for counting how many s
 // Moving / on table. We consider the ball to be still on a table when there
 // has not been measured any significant difference in accelleration during the
 // last X samples and when we are not in free fall.
-#define ON_TABLE_TRESHOLD 2 // Required minimal diffence to be considered a movement.
+#define ON_TABLE_TRESHOLD 3 // Required minimal diffence to be considered a movement.
 
-volatile int32_t __on_table_counter = 0; // Counter 0..x for counting how long the ball already is on the table.
+volatile int32_t __on_table_counter = 0; // Counter 0..x for counting how many samples the ball already is on the table.
+volatile int32_t __moving_counter = 0; // Counter 0..x for counting how many samples the ball already moving
 volatile bool __is_on_table = false;
 
 volatile unsigned char __last_measurement_x = 0;
@@ -227,7 +227,7 @@ inline bool adc_main_loop()
 	// z-axis is in free fall, when it's value floats around 120
 	// y-axis is in free fall, when it's value floats around 128
 	// x-axis is in free fall, when it's value floats around 128
-	#define PRECISION 8
+	#define PRECISION 12
 
 	#define Z_MIN (Z_CENTER - PRECISION)
 	#define Z_MAX (Z_CENTER + PRECISION)
@@ -237,9 +237,13 @@ inline bool adc_main_loop()
 	#define X_MAX (X_CENTER + PRECISION)
 
 	// Read values from accelero
-	unsigned char z = get_z_accelero();
-	unsigned char y = get_y_accelero();
-	unsigned char x = get_x_accelero();
+	//unsigned char z = get_z_accelero();
+	//unsigned char y = get_y_accelero();
+	//unsigned char x = get_x_accelero();
+
+	unsigned char x = ((int) get_x_accelero() + (int)get_x_accelero() + (int)get_x_accelero()) / 3;
+	unsigned char y = ((int) get_y_accelero() + (int)get_y_accelero() + (int)get_y_accelero()) / 3;
+	unsigned char z = ((int) get_z_accelero() + (int)get_z_accelero() + (int)get_z_accelero()) / 3;
 
 	// Do we have a significant difference compared to two history windows ago.
 	int index = (__history_index + HISTORY_SIZE - 4) % HISTORY_SIZE;
@@ -255,15 +259,20 @@ inline bool adc_main_loop()
 		z > __z_history[index] - ON_TABLE_TRESHOLD);
 
 	if (on_table)
+	{
 		__on_table_counter ++;
+		__moving_counter = 0;
+	}
 	else
+	{
+		__moving_counter ++;
 		__on_table_counter = 0;
+	}
 
 	if (__is_on_table)
 	{
-		// We are on the table. Any significant movement will cause the ball
-		// not to be considered on the table.
-		if (! on_table)
+		// We are on the table. Need to have X samples moving
+		if (__moving_counter > 3)
 		{
 			usart_send_packet("MOVING", NULL, NULL);
 			__is_on_table = false;
@@ -271,7 +280,7 @@ inline bool adc_main_loop()
 	}
 	else
 	{
-		// We are moving. Need to have X times on table.
+		// We are moving. Need to have X samples on table.
 		if (__on_table_counter > 2000)
 		{
 			usart_send_packet("ON_TABLE", NULL, NULL);
@@ -778,6 +787,29 @@ void (*program_pointers [])(char*) = {
 };
 
 
+
+// Test accellerometer data
+void adc_test(void)
+{
+	cli();
+	int i;
+	all_leds_off();
+	_delay_ms(200);
+	all_leds_on();
+
+	for (i = 0; i < 200; i ++)
+	{
+		_delay_ms(50);
+		unsigned char x = get_x_accelero();
+		unsigned char y = get_y_accelero();
+		unsigned char z = get_z_accelero();
+		char buffer[265];
+		sprintf(buffer, "x=%i,y=%i,z=%i\r\n", x, y, z);
+		usart_send_packet("ADC", buffer, NULL);
+	}
+	sei();
+}
+
 void self_test(void)
 {
 	// Disable interrupts
@@ -835,6 +867,12 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 		else if (strcmp(action, "SELFTEST") == 0)
 		{
 			self_test();
+		}
+		
+		// Accellero test
+		else if (strcmp(action, "ADCTEST") == 0)
+		{
+			adc_test();
 		}
 
 		// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
