@@ -25,6 +25,8 @@
 #include "programs/percussion.h"
 #include "programs/c_major.h"
 #include "programs/hobbit.h"
+#include "programs/ping.h"
+#include "programs/fade.h"
 
 
 /* ===============================[ Globals ]============================ */
@@ -275,54 +277,6 @@ void cleanup_fluidsynth(void)
 
 /* ===============================[ Programs ]============================ */
 
-/* **** 1: debug **** */
-void test_app1_activate(void)
-{
-	send_packet("RUN", 0, "fade", "FFFF00:150");
-	sleep(1);
-	send_packet("RUN", 0, "fade", "00FF00:150");
-	sleep(1);
-	send_packet("RUN", 0, "fade", "00FFFF:150");
-	sleep(1);
-	send_packet("RUN", 0, "fade", "0000FF:150");
-	sleep(1);
-	send_packet("RUN", 0, "fade", "FF00FF:150");
-	sleep(1);
-	send_packet("RUN", 0, "fade", "FF0000:150");
-}
-void test_app1_packet_received(struct juggle_packet_t* packet)
-{
-	print_string("Packet received: %s\n", packet->action);
-}
-
-
-/* *** 2: Ping *** */
-void ping_activate(void)
-{
-    send_packet("PING", 0, NULL, NULL);
-	clock_t sent = clock();
-
-	int i;
-	for (i = 0; i < BALL_COUNT; i ++)
-	{
-		juggle_states[i].ping_sent = sent;
-		juggle_states[i].ping_time = 0;
-	}
-}
-
-void ping_packet_received(struct juggle_packet_t* packet)
-{
-	clock_t received = clock();
-
-	if (strcmp(packet->action, "PONG") == 0 && packet->ball >= 1 && packet->ball <= BALL_COUNT)
-	{
-		print_string("Pong received (ball %i)", packet->ball);
-		clock_t sent = juggle_states[packet->ball - 1].ping_sent;
-		int duration = (received - sent) / (CLOCKS_PER_SEC/1000); // millisec
-		juggle_states[packet->ball - 1].ping_time = duration;
-	}
-}
-
 /* *** Battery test ***/
 void battery_test_activate(void)
 {
@@ -385,12 +339,12 @@ void activate_program(struct juggle_program_t* program)
 // List of all available programs
 #define PROGRAMS_COUNT 9
 struct juggle_program_t PROGRAMS[] = {
-//		{
-//			"Test fade",
-//			test_app1_activate,
-//			NULL,
-//			test_app1_packet_received,
-//		},
+		{
+			"Test fade",
+			fade_activate,
+			NULL,
+			NULL,
+		},
         {
             "Ping",
             ping_activate,

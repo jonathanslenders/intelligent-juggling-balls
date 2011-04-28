@@ -26,6 +26,10 @@ void percussion_activate(void)
 {
     // Initialize percussion -> always bank 128, and channel 10 (General MIDI)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
+
+
+	// Default program
+	send_packet("RUN", 0, "fixed", "004400 880088 ff0000 0000ff ffffff");
 }
 
 void percussion_deactivate(void)

@@ -14,7 +14,9 @@
 
 // ******** __ Ball config __ *******
 
-#define BALL_ID_STR "1" // SHOULD BE BETWEEN 1 and 255
+#ifndef BALL_ID_STR
+#define BALL_ID_STR "4" // SHOULD BE BETWEEN 1 and 255
+#endif
 
 // ******** __ end of ball config __ *******
 
@@ -301,23 +303,12 @@ inline bool adc_main_loop()
 	else
 	{
 		// We are moving. Need to have X samples on table.
-		if (__on_table_counter > 2000)
+		if (__on_table_counter > 100)
 		{
 			usart_send_packet("ON_TABLE", NULL, NULL);
 			__is_on_table = true;
 		}
 	}
-
-	// TODO: calculate impact. (pytagoras distance to center.)
-	//int delta_x = (x > X_CENTER ? x - X_CENTER : X_CENTER - x);
-	//int delta_y = (y > Y_CENTER ? y - Y_CENTER : Y_CENTER - y);
-	//int delta_z = (z > Z_CENTER ? z - Z_CENTER : Z_CENTER - z);
-
-	// Calculate: impact*impact
-	//int impact_2 = (delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
-
-	//return (delta_x < PRECISION && delta_y < PRECISION & delta_z < PRECISION);
-
 
 	// Save last measurement
 	__last_measurement_x = x;
@@ -362,7 +353,7 @@ inline bool adc_main_loop()
 
 	if (__in_free_fall)
 	{
-		if (__not_in_free_fall_cunter > 5) // Need to have 5 samples not in free fall before being sure.
+		if (__not_in_free_fall_cunter > 3) // Need to have 5 samples not in free fall before being sure.
 		{
 			__in_free_fall = false;
 			enter_hand();
@@ -370,15 +361,10 @@ inline bool adc_main_loop()
 	}
 	else
 	{
-		if (__in_free_fall_counter > 20) // Need to have 5 samples in free fall before being sure...
+		if (__in_free_fall_counter > 5) // Need to have 5 samples in free fall before being sure...
 		{
 			__in_free_fall = true;
 			leave_hand();
-
-
-//char buffer[255];
-//sprintf(buffer, "x=%i,y=%i,z=%i\r\n", x,y,z);
-//usart_send_string(buffer);
 		}
 	}
 }
@@ -454,6 +440,8 @@ void enter_hand()
 // Interrupt for measuring the flight duration
 ISR(TIMER2_COMPB_vect)
 {
+	adc_main_loop();
+
 	// Increase counter
 	__free_fall_duration += 1;
 	__time_since_last_catch += 1;
@@ -670,6 +658,7 @@ void pr_fixed_color_tick_callback(char * param)
 }
 
 
+	//pr_fixed_color_install("004400 880088 ff0000 0000ff ffffff");
 void pr_fixed_color_install(char * param)
 {
 	int length = strlen(param);
@@ -1236,7 +1225,7 @@ int main(void)
 		// red going up
 		// blue going down
 		// catch white
-	pr_fixed_color_install("004400 880088 ff0000 0000ff ffffff");
+	pr_fixed_color_install("004400 550055 880000 000088 ffffff");
 
 	// Send booted packet
 	usart_send_packet("BOOTED", NULL, NULL);
@@ -1249,7 +1238,7 @@ int main(void)
 			parse_input_char(usart_receive());
 
 		// Juggle ball program loop
-		adc_main_loop();
+//		adc_main_loop();
 	}
 
 	// Simple 5sec blinking light (speed test)
