@@ -27,6 +27,8 @@
 #include "programs/hobbit.h"
 #include "programs/ping.h"
 #include "programs/fade.h"
+#include "programs/battery.h"
+#include "programs/color_mixer.h"
 
 
 /* ===============================[ Globals ]============================ */
@@ -43,6 +45,7 @@ pthread_t data_read_thread;
 WINDOW *serial_window = NULL;
 WINDOW *status_window = NULL;
 WINDOW *programs_window = NULL;
+int programs_window_cursor_position = 0;
 
 
 /* ===============================[ Serial FIFO queue ]============================ */
@@ -277,24 +280,6 @@ void cleanup_fluidsynth(void)
 
 /* ===============================[ Programs ]============================ */
 
-/* *** Battery test ***/
-void battery_test_activate(void)
-{
-	// Reset voltage 
-	int i;
-	for (i = 0; i < BALL_COUNT; i ++)
-	{
-		juggle_states[i].voltage = 0;
-	}
-
-	// Query voltage again
-    send_packet("BATTTEST", 0, NULL, NULL);
-}
-void battery_test_packet_received(struct juggle_packet_t* packet)
-{
-	//print_string("ball %i: %s %s", packet->ball, packet->param1, packet->param2);
-}
-
 /* *** Self test ***/
 
 void self_test_activate(void)
@@ -320,7 +305,63 @@ void identify_activate(void)
     send_packet("IDENTIFY", 0, NULL, NULL);
 }
 
-/* *** 4: Charriots of Fire *** */
+/* *** Standby *** */
+
+void standby_activate(void)
+{
+	send_packet("STANDBY", 0, NULL, NULL);
+}
+
+/* *** basic colors * ***/
+
+void purple_activate(void)
+{
+	send_packet("RUN", 0, "fade", "ff22cc:200");
+}
+void pink_activate(void)
+{
+	send_packet("RUN", 0, "fade", "ff0088:200");
+}
+void red_activate(void)
+{
+	send_packet("RUN", 0, "fade", "ff0000:200");
+}
+void green_activate(void)
+{
+	send_packet("RUN", 0, "fade", "00ff00:200");
+}
+void blue_activate(void)
+{
+	send_packet("RUN", 0, "fade", "0000ff:200");
+}
+void yellow_activate(void)
+{
+	send_packet("RUN", 0, "fade", "ffff00:200");
+}
+
+void map_force_to_intensity_activate(void)
+{
+	send_packet("RUN", 0, "force_to_i", "ffffff");
+}
+
+/* *** Colors on movement *** */
+
+void little_red_white_on_movement_activate(void)
+{
+	send_packet("RUN", 0, "fixed", "440000");
+}
+void little_red_white_on_movement_packet_received(struct juggle_packet_t* packet)
+{
+	if (strcmp(packet->action, "MOVING") == 0)
+	{
+		send_packet("RUN", packet->ball, "fade", "ffeedd:50");
+
+	}
+	else if (strcmp(packet->action, "ON_TABLE") == 0)
+	{
+		send_packet("RUN", packet->ball, "fade", "440000:200");
+	}
+}
 
 // Activate program
 void activate_program(struct juggle_program_t* program)
@@ -337,20 +378,20 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 9
+#define PROGRAMS_COUNT 21
 struct juggle_program_t PROGRAMS[] = {
-		{
-			"Test fade",
-			fade_activate,
-			NULL,
-			NULL,
-		},
         {
             "Ping",
             ping_activate,
             NULL,
             ping_packet_received,
         },
+		{
+			"Test fade",
+			fade_activate,
+			fade_deactivate,
+			NULL,
+		},
 		{
 			"Battery test",
 			battery_test_activate,
@@ -363,18 +404,43 @@ struct juggle_program_t PROGRAMS[] = {
 			NULL,
 			NULL,
 		},
-//		{
-//			"ADC test",
-//			adc_test_activate,
-//			NULL,
-//			adc_test_packet_received,
-//		},
+		{
+			"ADC test",
+			adc_test_activate,
+			NULL,
+			adc_test_packet_received,
+		},
         {
             "Identify",
             identify_activate,
             NULL,
             NULL,
         },
+		{
+			"Standby",
+			standby_activate,
+			NULL,
+			NULL,
+		},
+
+		{ "* Purple", purple_activate, NULL, NULL, },
+		{ "* Pink", pink_activate, NULL, NULL, },
+		{ "* Red", red_activate, NULL, NULL, },
+		{ "* Green", green_activate, NULL, NULL, },
+		{ "* Blue", blue_activate, NULL, NULL, },
+		{ "* Yellow", yellow_activate, NULL, NULL, },
+		{
+			"Map force to intensity",
+			map_force_to_intensity_activate,
+			NULL,
+			NULL,
+		},
+		{
+			"Light red on table, white on movement",
+			little_red_white_on_movement_activate,
+			NULL,
+			little_red_white_on_movement_packet_received,
+		},
 		{
 			"Wild mountain thyme",
 			wild_mountain_thyme_activate,
@@ -404,7 +470,13 @@ struct juggle_program_t PROGRAMS[] = {
 			c_major_activate,
             c_majar_deactivate,
 			c_major_packet_received,
-		}
+		},
+		{
+			"Color mixer",
+			color_mixer_activate,
+            NULL,
+			NULL,
+		},
 };
 
 
@@ -542,8 +614,20 @@ void print_programs_window(void)
     for(i = 0; i < PROGRAMS_COUNT; i ++)
     {
 		char buffer[256];
-		snprintf(buffer, 256, "%3i  %s", i+1, PROGRAMS[i].description);
-		mvwprintw(programs_window, 2+i, 1, buffer);
+
+		if (i == programs_window_cursor_position)
+		{
+			snprintf(buffer, 256, "> %3i  %s", i+1, PROGRAMS[i].description);
+
+			wattron(programs_window, COLOR_PAIR(2));
+			mvwprintw(programs_window, 1+i, 1, buffer);
+			wattroff(programs_window, COLOR_PAIR(2));
+		}
+		else
+		{
+			snprintf(buffer, 256, "  %3i  %s", i+1, PROGRAMS[i].description);
+			mvwprintw(programs_window, 1+i, 1, buffer);
+		}
     }
 
     // Print box and title
@@ -600,6 +684,7 @@ int main(void)
 	}
 	start_color();
 	init_pair(1, COLOR_WHITE, COLOR_MAGENTA);
+	init_pair(2, COLOR_WHITE, COLOR_BLUE);
     print_string("Colours counted: %i", COLORS);
 
     // Terminal options
@@ -614,12 +699,12 @@ int main(void)
 	status_window = newwin(20, 84, 1, 1);
 
 	// Serial window
-	serial_window = newwin(18, 60, 22, 0);
+	serial_window = newwin(14, 60, 22, 0);
 	scrollok(serial_window, 1);
 	//wsetscrreg(serial_window, 1, 14);
 
     // Programs window
-    programs_window = newwin(15, 60, 40, 0);
+    programs_window = newwin(22, 60, 36, 0);
 
 	// Curses GUI loop
 	while(true)
@@ -639,6 +724,19 @@ int main(void)
         {
 	        activate_program(& PROGRAMS[ch - '1']);
         }
+
+		else if (ch == 259) //  key up
+		{
+			programs_window_cursor_position = (programs_window_cursor_position + PROGRAMS_COUNT - 1) % PROGRAMS_COUNT;
+		}
+		else if (ch == 258) //  key down
+		{
+			programs_window_cursor_position = (programs_window_cursor_position + 1) % PROGRAMS_COUNT;
+		}
+		else if (ch == 10) //  Enter
+		{
+	        activate_program(& PROGRAMS[programs_window_cursor_position]);
+		}
 
         // THROW packet simulation
         else if (ch == 'a') simulate_throw(1);

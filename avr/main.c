@@ -15,7 +15,7 @@
 // ******** __ Ball config __ *******
 
 #ifndef BALL_ID_STR
-#define BALL_ID_STR "4" // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID_STR "9" // SHOULD BE BETWEEN 1 and 255
 #endif
 
 // ******** __ end of ball config __ *******
@@ -236,11 +236,11 @@ void read_voltage()
 	ADMUX = _BV(REFS0) | _BV(ADLAR) | 6; // Read sixth channel
 	unsigned char adc6 = do_adc_conversion();
 
-	float aref = 3.3; // From voltage regulator
+	float aref = 3.6; // From voltage regulator
 	int result = 1000.0 * 43.0 * adc6 * aref / (10.0 * 255);
 
 	char buffer[256];
-	sprintf(buffer, "%imV %i", result, adc6);
+	sprintf(buffer, "%imV", result);
 	usart_send_packet("VOLTAGE", buffer, NULL);
 }
 
@@ -379,7 +379,7 @@ void leave_hand()
 	// Reset timer
 	__free_fall_duration = 0;
 
-	// Calculate leave 'force'.
+	// Calculate leave 'force'. NOTE: this parameter is probably absoluty useless and should be dropped...
 	uint32_t force = 0;
 
 	int index = (__history_index + HISTORY_SIZE - 1) % HISTORY_SIZE;
@@ -715,12 +715,9 @@ void pr_fixed_color_install(char * param)
 }
 
 // ***** Fade to color
-volatile unsigned char __pr_fade_to_color_start_red;
-volatile unsigned char __pr_fade_to_color_start_green;
-volatile unsigned char __pr_fade_to_color_start_blue;
-volatile unsigned char __pr_fade_to_color_end_red;
-volatile unsigned char __pr_fade_to_color_end_green;
-volatile unsigned char __pr_fade_to_color_end_blue;
+volatile struct color_t __pr_fade_to_color_start;
+volatile struct color_t __pr_fade_to_color_end;
+
 volatile unsigned int __pr_fade_to_color_time;
 volatile unsigned int __pr_fade_to_color_ticks;
 
@@ -733,23 +730,23 @@ void pr_fade_to_color_tick_callback(void)
 		// Now iterpolate between start and end color 
 		float percentage = (float)__pr_fade_to_color_ticks / (float)__pr_fade_to_color_time;
 
-		red_led_percentage((int)__pr_fade_to_color_start_red + (float)(__pr_fade_to_color_end_red - __pr_fade_to_color_start_red) * percentage);
-		green_led_percentage((int)__pr_fade_to_color_start_green + (float)(__pr_fade_to_color_end_green - __pr_fade_to_color_start_green) * percentage);
-		blue_led_percentage((int)__pr_fade_to_color_start_blue + (float)(__pr_fade_to_color_end_blue - __pr_fade_to_color_start_blue) * percentage);
+		red_led_percentage((int)__pr_fade_to_color_start.red + (float)(__pr_fade_to_color_end.red - __pr_fade_to_color_start.red) * percentage);
+		green_led_percentage((int)__pr_fade_to_color_start.green + (float)(__pr_fade_to_color_end.green - __pr_fade_to_color_start.green) * percentage);
+		blue_led_percentage((int)__pr_fade_to_color_start.blue + (float)(__pr_fade_to_color_end.blue - __pr_fade_to_color_start.blue) * percentage);
 	}
 }
 
 void pr_fade_to_color_install(char * param)
 {
 	// Remember start value
-	__pr_fade_to_color_start_red = __red_intensity;
-	__pr_fade_to_color_start_green = __green_intensity;
-	__pr_fade_to_color_start_blue = __blue_intensity;
+	__pr_fade_to_color_start.red = __red_intensity;
+	__pr_fade_to_color_start.green = __green_intensity;
+	__pr_fade_to_color_start.blue = __blue_intensity;
 
 	// parameter like FF0044:100
-	__pr_fade_to_color_end_red = hex_to_int(param[0]) * 16 + hex_to_int(param[1]);
-	__pr_fade_to_color_end_green = hex_to_int(param[2]) * 16 + hex_to_int(param[3]);
-	__pr_fade_to_color_end_blue = hex_to_int(param[4]) * 16 + hex_to_int(param[5]);
+	__pr_fade_to_color_end.red = hex_to_int(param[0]) * 16 + hex_to_int(param[1]);
+	__pr_fade_to_color_end.green = hex_to_int(param[2]) * 16 + hex_to_int(param[3]);
+	__pr_fade_to_color_end.blue = hex_to_int(param[4]) * 16 + hex_to_int(param[5]);
 
 	// Fade speed
 	if (! sscanf(param+7, "%i", &__pr_fade_to_color_time))
@@ -760,6 +757,40 @@ void pr_fade_to_color_install(char * param)
 	__enter_hand_callback = &dummy_callback;
 	__leave_hand_callback = &dummy_callback;
 	__timer_tick_callback = &pr_fade_to_color_tick_callback;
+}
+
+
+// *****  Force to intensity: free fall=white, lot of force -> dark
+
+volatile struct color_t __pr_force_to_intensity_color;
+
+void pr_force_to_intensity_tick_callback(void)
+{
+	// Calculate 'force' distance
+	float distance = 0;
+	distance += ((signed int)__last_measurement_x - 128) * (__last_measurement_x > 128 ? 1 : -1);
+	distance += ((signed int)__last_measurement_y - 128) * (__last_measurement_y > 128 ? 1 : -1);
+	distance += ((signed int)__last_measurement_z - 128) * (__last_measurement_z > 128 ? 1 : -1);
+
+	// Interpolate 0..distance between custom_color..black
+	float factor = 1.f - distance / 40;
+	if (factor < 0) factor = 0;
+	red_led_percentage(__pr_force_to_intensity_color.red * factor);
+	green_led_percentage(__pr_force_to_intensity_color.green * factor);
+	blue_led_percentage(__pr_force_to_intensity_color.blue * factor);
+}
+
+void pr_force_to_intensity_install(char * param)
+{
+	// Colors
+	__pr_force_to_intensity_color.red = hex_to_int(param[0]) * 16 + hex_to_int(param[1]);
+	__pr_force_to_intensity_color.green = hex_to_int(param[2]) * 16 + hex_to_int(param[3]);
+	__pr_force_to_intensity_color.blue = hex_to_int(param[4]) * 16 + hex_to_int(param[5]);
+
+	// Callbacks
+	__enter_hand_callback = &dummy_callback;
+	__leave_hand_callback = &dummy_callback;
+	__timer_tick_callback = &pr_force_to_intensity_tick_callback;
 }
 
 // *****  Alternate every throw between red, green and blue
@@ -797,36 +828,6 @@ void pr_alternate_install(char* param)
 	__leave_hand_callback = &pr_alternate_leave;
 	__timer_tick_callback = &dummy_callback;
 }
-
-// ****  Interpolate from green to blue during a throw
-//     (not completely tested, but algorithm should work.)
-
-void pr_interpolate_tick_callback()
-{
-	if (__in_free_fall)
-	{
-		if (__free_fall_duration > __last_free_fall_duration /2)
-		{
-			green_led_on();
-			blue_led_off();
-		}
-		else
-		{
-			blue_led_on();
-			green_led_off();
-		}
-	}
-	else
-		all_leds_off();
-}
-
-void pr_interpolate_install(char* param)
-{
-	__enter_hand_callback = &dummy_callback;
-	__leave_hand_callback = &dummy_callback;
-	__timer_tick_callback = pr_interpolate_tick_callback;
-}
-
 
 // ****** invisible up, comes down in blue.
 
@@ -889,48 +890,26 @@ void pr_rain_install(char* param)
 	__timer_tick_callback = &pr_rain_tick_callback;
 }
 
+// ****** Standby: dim all LEDs.
 
-// *********  table test
-
-void pr_table_test_tick_callback()
-{
-	if (__is_on_table)
-	{
-		blue_led_off();
-		green_led_off();
-		red_led_on();
-	}
-	else if (__in_free_fall)
-	{
-		blue_led_on();
-		green_led_off();
-		red_led_off();
-	}
-	else
-	{
-		blue_led_off();
-		green_led_on();
-		red_led_off();
-	}
-}
-
-void pr_table_test_install(char* param)
+void pr_standby_install(char*param)
 {
 	__enter_hand_callback = &dummy_callback;
 	__leave_hand_callback = &dummy_callback;
-	__timer_tick_callback = &pr_table_test_tick_callback;
+	__timer_tick_callback = &dummy_callback;
+	all_leds_off();
 }
 
 // List of installed programs
 
-#define PROGRAM_COUNT 5
+#define PROGRAM_COUNT 6
 const char* program_names[] = {
 	"fixed",
 	"fade",
 	"alternate",
 	"rain",
-	"interpolate",
-	"tabletest",
+	"standby",
+	"force_to_i",
  };
 
 void (*program_pointers [])(char*) = {
@@ -938,13 +917,11 @@ void (*program_pointers [])(char*) = {
 	&pr_fade_to_color_install,
 	&pr_alternate_install,
 	&pr_rain_install,
-	&pr_interpolate_install,
-	&pr_table_test_install,
+	&pr_standby_install,
+	&pr_force_to_intensity_install,
 };
 
-
-
-// Test accellerometer data
+// Test accellerometer data (for debugging hardware)
 void adc_test(void)
 {
 	cli();
@@ -966,6 +943,7 @@ void adc_test(void)
 	sei();
 }
 
+// Self test: test LEDs (for debugging hardware)
 void self_test(void)
 {
 	// Disable interrupts
@@ -1035,6 +1013,11 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 		else if (strcmp(action, "BATTTEST") == 0)
 		{
 			read_voltage();
+		}
+
+		else if (strcmp(action, "STANDBY") == 0)
+		{
+			pr_standby_install("");
 		}
 
 		// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
