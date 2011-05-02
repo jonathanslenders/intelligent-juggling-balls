@@ -34,7 +34,7 @@ void ping_packet_received(struct juggle_packet_t* packet)
 
 	if (strcmp(packet->action, "PONG") == 0 && packet->ball >= 1 && packet->ball <= BALL_COUNT)
 	{
-		print_string("Pong received (ball %i)", packet->ball);
+		print_string("Pong received (ball %i, version %s)", packet->ball, packet->param1);
 		clock_t sent = juggle_states[packet->ball - 1].ping_sent;
 		int duration = (received - sent) / (CLOCKS_PER_SEC/1000); // millisec
 		juggle_states[packet->ball - 1].ping_time = duration;

@@ -15,8 +15,88 @@
 // ******** __ Ball config __ *******
 
 #ifndef BALL_ID_STR
-#define BALL_ID_STR "9" // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID_STR "14" // SHOULD BE BETWEEN 1 and 255
 #endif
+#ifndef VERSION_ID
+#define VERSION_ID "0.1.2" // Version number, increment after every change
+#endif
+
+
+// Accellerometer center values (measured in free fall.)
+
+//#define Z_CENTER 128
+//#define Y_CENTER 128
+//#define X_CENTER 128
+
+// Ball 10
+//#define X_CENTER 121
+//#define Y_CENTER 128
+//#define Z_CENTER 128
+
+// Ball 11
+//#define X_CENTER 122
+//#define Y_CENTER 135
+//#define Z_CENTER 137
+
+// Ball 13
+//#define X_CENTER 125
+//#define Y_CENTER 134
+//#define Z_CENTER 133
+
+// Ball 8
+//#define X_CENTER 124
+//#define Y_CENTER 134
+//#define Z_CENTER 131
+
+
+// Ball 9
+//#define X_CENTER 120
+//#define Y_CENTER 133
+//#define Z_CENTER 132
+
+
+// Ball 7
+//#define X_CENTER 122
+//#define Y_CENTER 132
+//#define Z_CENTER 137
+
+
+// Ball 6
+//#define X_CENTER 123
+//#define Y_CENTER 133
+//#define Z_CENTER 133
+
+// Ball 14
+#define X_CENTER 121
+#define Y_CENTER 134
+#define Z_CENTER 132
+
+// Ball 5
+//#define X_CENTER 124
+//#define Y_CENTER 134
+//#define Z_CENTER 127
+
+
+// Ball 4
+//#define X_CENTER 125
+//#define Y_CENTER 132
+//#define Z_CENTER 132
+
+
+// Ball 3
+//#define X_CENTER 122
+//#define Y_CENTER 133
+//#define Z_CENTER 132
+
+// Ball 2
+//#define X_CENTER 125
+//#define Y_CENTER 133
+//#define Z_CENTER 131
+
+// Ball 1
+//#define X_CENTER 123
+//#define Y_CENTER 133
+//#define Z_CENTER 127
 
 // ******** __ end of ball config __ *******
 
@@ -99,15 +179,6 @@ volatile void (*__timer_tick_callback)(void) = &dummy_callback;
 	// consider the throw high enough for not being noise.
 
 
-// Accellerometer center values (measured in free fall.)
-//#define Z_CENTER 120
-//#define Y_CENTER 128
-//#define X_CENTER 128
-#define Z_CENTER 128
-#define Y_CENTER 128
-#define X_CENTER 128
-
-
 // ===========================[ USART ]===================================
 
 inline void usart_init(unsigned int ubrr)
@@ -167,8 +238,30 @@ void usart_send_int(unsigned int i)
 	usart_transmit('0' + (i % 10));
 }
 
+#include <stdarg.h> /* for variadic functions */
 
 // Send null-terminated string over usart
+void usart_printf(const char* format, ...) __attribute__ ((format (printf, 1, 2)));
+
+void usart_printf(const char* format, ...)
+{
+	// Print into new string
+	va_list args;
+	va_start(args, format);
+
+	int len = vsnprintf(NULL, 0, format, args);
+	char * new_string = (char*) malloc(len + 1);
+	vsnprintf(new_string, len + 1, format, args);
+
+	va_end(args);
+
+	// Send new string
+	usart_send_string(new_string);
+
+	free(new_string);
+}
+
+
 void usart_send_string(char * s)
 {
 	while(*s)
@@ -622,15 +715,19 @@ void pr_fixed_color_enter(bool was_throw)
 
 void pr_fixed_color_leave(void)
 {
-	// Going up (don't wait for the timer.
-	set_color(__pr_fixed_color_down);
+	// Going up (don't wait for the timer.)
+	set_color(__pr_fixed_color_up);
 }
 
 void pr_fixed_color_tick_callback(char * param)
 {
 	// TODO: add some nicer interpolation
-
-	if (__in_free_fall)
+	if (__is_on_table)
+	{
+		// On table
+		set_color(__pr_fixed_color_on_table);
+	}
+	else if (__in_free_fall)
 	{
 		unsigned int halfway = __last_free_fall_duration/2;
 
@@ -642,9 +739,6 @@ void pr_fixed_color_tick_callback(char * param)
 		else
 			set_color(__pr_fixed_color_down);
 	}
-	else if (__is_on_table)
-		// On table
-		set_color(__pr_fixed_color_on_table);
 	else
 	{
 		// Catch flash
@@ -658,9 +752,10 @@ void pr_fixed_color_tick_callback(char * param)
 }
 
 
-	//pr_fixed_color_install("004400 880088 ff0000 0000ff ffffff");
 void pr_fixed_color_install(char * param)
 {
+	// The parameter looks like:
+	//pr_fixed_color_install("004400_880088_ff0000_0000ff_ffffff");
 	int length = strlen(param);
 	__enter_hand_callback = &pr_fixed_color_enter;
 	__leave_hand_callback = &pr_fixed_color_leave;
@@ -994,7 +1089,7 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 		// PING: answer with PONG
 		else if (strcmp(action, "PING") == 0)
 		{
-			usart_send_packet("PONG", NULL, NULL);
+			usart_send_packet("PONG", VERSION_ID, NULL);
 		}
 
 		// LED test
@@ -1052,7 +1147,7 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 //    frame   :=  <action>  ' ' <ball> ' ' <param>
 
 
-#define max_input_length 32
+#define max_input_length 64
 char input_action[max_input_length]; // max length 
 char input_ball[max_input_length]; // max length 
 char input_param1[max_input_length]; // max length 
@@ -1208,7 +1303,7 @@ int main(void)
 		// red going up
 		// blue going down
 		// catch white
-	pr_fixed_color_install("004400 550055 880000 000088 ffffff");
+	pr_fixed_color_install("004400_550055_880000_000088_ffffff");
 
 	// Send booted packet
 	usart_send_packet("BOOTED", NULL, NULL);

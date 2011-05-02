@@ -29,6 +29,7 @@
 #include "programs/fade.h"
 #include "programs/battery.h"
 #include "programs/color_mixer.h"
+#include "programs/random_flash_on_fall.h"
 
 
 /* ===============================[ Globals ]============================ */
@@ -78,7 +79,7 @@ void print_string(const char* format, ...)
 	va_list args;
 	va_start(args, format);
 
-	int len = vsnprintf(NULL, 0, format, args );
+	int len = vsnprintf(NULL, 0, format, args);
 	char * new_string = (char*) malloc(len + 1);
 	vsnprintf(new_string, len + 1, format, args); 
 
@@ -197,6 +198,11 @@ void process_packet(struct juggle_packet_t* packet)
 				int voltage;
 				if (sscanf(packet->param1, "%i", &voltage))
 					juggle_states[ball-1].voltage = voltage;
+			}
+			else if (strcmp(packet->action, "DEBUG") == 0)
+			{
+				// Debug packets are printed on the terminal
+				print_string("DEBUG: %s %s", packet->param1, packet->param2);
 			}
 		}
 
@@ -338,6 +344,15 @@ void yellow_activate(void)
 {
 	send_packet("RUN", 0, "fade", "ffff00:200");
 }
+void white_activate(void)
+{
+	send_packet("RUN", 0, "fade", "ffffff:200");
+}
+
+void blue_in_air_magenta_otherwise(void)
+{
+	send_packet("RUN", 0, "fixed", "aa00aa_aa00aa_0000ff_0000ff");
+}
 
 void map_force_to_intensity_activate(void)
 {
@@ -363,6 +378,33 @@ void little_red_white_on_movement_packet_received(struct juggle_packet_t* packet
 	}
 }
 
+/* *** Only colors in air *** */
+
+void only_colors_in_air_activate(void)
+{
+	send_packet("RUN", 1, "fixed",  "000000_000000_ff0000_ff0000_ffffff");
+	send_packet("RUN", 2, "fixed",  "000000_000000_ff0000_ff0000_ffffff");
+	send_packet("RUN", 3, "fixed",  "000000_000000_ff0000_ff0000_ffffff");
+
+	send_packet("RUN", 4, "fixed",  "000000_000000_00ff00_00ff00_ffffff");
+	send_packet("RUN", 5, "fixed",  "000000_000000_00ff00_00ff00_ffffff");
+
+	send_packet("RUN", 6, "fixed",  "000000_000000_ffff00_ffff00_ffffff");
+	send_packet("RUN", 7, "fixed",  "000000_000000_ffff00_ffff00_ffffff");
+
+	send_packet("RUN", 8, "fixed",  "000000_000000_0000ff_0000ff_ffffff");
+	send_packet("RUN", 9, "fixed",  "000000_000000_0000ff_0000ff_ffffff");
+
+	send_packet("RUN", 10, "fixed", "000000_000000_ff00ff_ff00ff_ffffff");
+	send_packet("RUN", 11, "fixed", "000000_000000_ff00ff_ff00ff_ffffff");
+	send_packet("RUN", 12, "fixed", "000000_000000_ff00ff_ff00ff_ffffff");
+
+	send_packet("RUN", 13, "fixed", "000000_000000_00ffff_00ffff_ffffff");
+	send_packet("RUN", 14, "fixed", "000000_000000_00ffff_00ffff_ffffff");
+	send_packet("RUN", 15, "fixed", "000000_000000_00ffff_00ffff_ffffff");
+}
+
+
 // Activate program
 void activate_program(struct juggle_program_t* program)
 {
@@ -378,7 +420,7 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 21
+#define PROGRAMS_COUNT 25
 struct juggle_program_t PROGRAMS[] = {
         {
             "Ping",
@@ -429,11 +471,30 @@ struct juggle_program_t PROGRAMS[] = {
 		{ "* Green", green_activate, NULL, NULL, },
 		{ "* Blue", blue_activate, NULL, NULL, },
 		{ "* Yellow", yellow_activate, NULL, NULL, },
+		{ "* White", white_activate, NULL, NULL, },
+		{
+			"Blue in air, magenta otherwise",
+			blue_in_air_magenta_otherwise,
+			NULL,
+			NULL,
+		},
+		{
+			"Only colors in air",
+			only_colors_in_air_activate,
+			NULL,
+			NULL,
+		},
 		{
 			"Map force to intensity",
 			map_force_to_intensity_activate,
 			NULL,
 			NULL,
+		},
+		{
+			"Random light on fall",
+			light_random_on_fall_activate,
+			NULL,
+			light_random_on_fall_packet_received,
 		},
 		{
 			"Light red on table, white on movement",
@@ -699,12 +760,12 @@ int main(void)
 	status_window = newwin(20, 84, 1, 1);
 
 	// Serial window
-	serial_window = newwin(14, 60, 22, 0);
+	serial_window = newwin(14, 60, 21, 0);
 	scrollok(serial_window, 1);
 	//wsetscrreg(serial_window, 1, 14);
 
     // Programs window
-    programs_window = newwin(22, 60, 36, 0);
+    programs_window = newwin(28, 60, 35, 0);
 
 	// Curses GUI loop
 	while(true)

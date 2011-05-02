@@ -11,6 +11,7 @@ struct theme_note_t {
 
 struct theme_status_t {
 	bool playing;
+	bool go_to_next;
 	int position;
 };
 
