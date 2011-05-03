@@ -19,6 +19,7 @@
 #define PORT_NAME "/dev/ttyUSB0"
 
 #include "main.h"
+#include "msleep.h"
 
 #include "programs/charriots_of_fire.h"
 #include "programs/wild_mountain_thyme.h"
@@ -847,7 +848,8 @@ int main(void)
 		print_status_window();
 
 		// Idle
-		sleep(0);
+		//sleep(0);
+        msleep(100);
 	}
 
 	// Clean up windows
