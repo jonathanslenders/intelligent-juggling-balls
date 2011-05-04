@@ -258,7 +258,7 @@ void init_fluidsynth()
     synth = new_fluid_synth(fluid_settings);
 
 	// Initialize audio driver
-    fluid_settings_setstr(fluid_settings, "audio.driver", "alsa");
+    fluid_settings_setstr(fluid_settings, "audio.driver", "oss");
     adriver = new_fluid_audio_driver(fluid_settings, synth);
 
 	// Load sound font
