@@ -68,7 +68,7 @@ void percussion_test_thread(void* data)
     int i;
     for(i = 1; i < 255; i ++)
     {
-        print_string("%i", i);
+        print_string("Testing percussion %i", i);
         fluid_synth_noteon(synth, 10, i+30, 100);
         sleep(1);
     }
