@@ -8,6 +8,8 @@
 #define NOTE_COUNT 14
 int notes[] =
 {
+	C_MAJOR__G3,
+
 	C_MAJOR__C4,
 	C_MAJOR__D4,
 	C_MAJOR__E4,
@@ -30,11 +32,12 @@ void c_major_test_thread(void* data);
 void c_major_activate(void)
 {
     // Initialize percussion -> always bank 128, and channel 10 (General MIDI)
-	//fluid_synth_program_select(synth, 0, fluid_font_id, 0, 1);
-	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 16); //organ
+//	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 1);
+//	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 16); //organ
 //	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 26); // jazz guitar
-//	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 12); // Marimba
+	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 12); // Marimba
 //	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 9); // Glockenspiel
+	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 2); // eletric piano
 
 
     // Test code for discovering instruments.

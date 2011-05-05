@@ -51,6 +51,9 @@
 
 // C majar scale
 
+#define C_MAJOR__G3 55
+
+
 #define C_MAJOR__C4 60
 #define C_MAJOR__D4 62
 #define C_MAJOR__E4 64

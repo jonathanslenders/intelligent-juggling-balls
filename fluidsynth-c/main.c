@@ -16,7 +16,7 @@
 
 #include <fluidsynth.h> /* For the MIDI synthesizer */
 
-#define PORT_NAME "/dev/ttyUSB0"
+#define PORT_NAME "/dev/ttyUSB1"
 
 #include "main.h"
 #include "msleep.h"
@@ -31,6 +31,7 @@
 #include "programs/battery.h"
 #include "programs/color_mixer.h"
 #include "programs/random_flash_on_fall.h"
+#include "programs/fur_elise.h"
 
 
 /* ===============================[ Globals ]============================ */
@@ -258,7 +259,7 @@ void init_fluidsynth()
     synth = new_fluid_synth(fluid_settings);
 
 	// Initialize audio driver
-    fluid_settings_setstr(fluid_settings, "audio.driver", "oss");
+    fluid_settings_setstr(fluid_settings, "audio.driver", "alsa");
     adriver = new_fluid_audio_driver(fluid_settings, synth);
 
 	// Load sound font
@@ -421,7 +422,7 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 25
+#define PROGRAMS_COUNT 26
 struct juggle_program_t PROGRAMS[] = {
         {
             "Ping",
@@ -538,6 +539,12 @@ struct juggle_program_t PROGRAMS[] = {
 			color_mixer_activate,
             NULL,
 			NULL,
+		},
+		{
+			"Fur elise",
+			fur_elise_activate,
+            fur_elise_deactivate,
+			fur_elise_packet_received,
 		},
 };
 
