@@ -1,6 +1,5 @@
 #include <time.h> /* for clock() */
 #include <pthread.h> /* posix threading */
-#include <time.h> /* for clock() */
 #include "../main.h"
 
 
@@ -20,7 +19,7 @@ fluid_player_t* player;
 int midi_callback(void *data, fluid_midi_event_t* event)
 {
 print_string("Channel %i", fluid_midi_event_get_channel(event));
-	fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 18); // accordeon/organ
+//	fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 18); // accordeon/organ
 	fluid_synth_cc(synth, fluid_midi_event_get_channel(event), 10, 127); /* 10=pan, between 0 and 127 */
 
 
@@ -37,6 +36,15 @@ print_string("Channel %i", fluid_midi_event_get_channel(event));
 		"FF00FF:50",
 	};
 
+	char* pulse_color[] = {
+		"FF0000_000000:200",
+		"FFFF00_000000:200",
+		"00FF00_000000:200",
+		"00FFFF_000000:200",
+		"0000FF_000000:200",
+		"FF00FF_000000:200",
+	};
+
 	//print_string("event type %d\n", fluid_midi_event_get_type(event));
 	if (duration && fluid_midi_event_get_type(event) == 0x90) // NOTE_ON
 	{
@@ -48,7 +56,8 @@ print_string("Channel %i", fluid_midi_event_get_channel(event));
 			send_packet("RUN", ball, "fixed", "ffffff");
 		// Fade on slow movements
 		else if (duration > 200)
-			send_packet("RUN", ball, "fade", color[next_color]);
+			//send_packet("RUN", ball, "fade", color[next_color]);
+			send_packet("RUN", ball, "pulse", pulse_color[next_color]);
 		else
 			send_packet("RUN", ball, "fixed", color[next_color]);
 
@@ -62,7 +71,7 @@ print_string("Channel %i", fluid_midi_event_get_channel(event));
 	//print_string("event type %d channel %c\n", fluid_midi_event_get_type(event), event->channel);
 }
 
-void fur_elise_activate(void)
+void fur_elise_activate(void* data)
 {
 	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 12); // Marimba
 
@@ -76,8 +85,8 @@ void fur_elise_activate(void)
 	player = new_fluid_player(synth);
 	player = new_fluid_player2(synth, midi_callback, NULL);
 
-	//fluid_player_add(player, "fur-elise.mid");
-	fluid_player_add(player, "mb01.mid");
+	fluid_player_add(player, "fur-elise.mid");
+	//fluid_player_add(player, "mb01.mid");
 	fluid_player_play(player);
 	sleep(1);
 	fluid_player_set_bpm(player,0); // pause

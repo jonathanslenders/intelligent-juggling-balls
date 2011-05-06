@@ -16,22 +16,12 @@
 
 #include <fluidsynth.h> /* For the MIDI synthesizer */
 
-#define PORT_NAME "/dev/ttyUSB1"
+#define PORT_NAME "/dev/ttyUSB0"
 
 #include "main.h"
 #include "msleep.h"
 
-#include "programs/charriots_of_fire.h"
-#include "programs/wild_mountain_thyme.h"
-#include "programs/percussion.h"
-#include "programs/c_major.h"
-#include "programs/hobbit.h"
-#include "programs/ping.h"
-#include "programs/fade.h"
-#include "programs/battery.h"
-#include "programs/color_mixer.h"
-#include "programs/random_flash_on_fall.h"
-#include "programs/fur_elise.h"
+#include "programs.h"
 
 
 /* ===============================[ Globals ]============================ */
@@ -290,13 +280,13 @@ void cleanup_fluidsynth(void)
 
 /* *** Self test ***/
 
-void self_test_activate(void)
+void self_test_activate(void*data)
 {
     send_packet("SELFTEST", 0, NULL, NULL);
 }
 
 /* *** ADC test ***/
-void adc_test_activate(void)
+void adc_test_activate(void*data)
 {
 	send_packet("ADCTEST", 0, NULL, NULL);
 }
@@ -308,81 +298,62 @@ void adc_test_packet_received(struct juggle_packet_t* packet)
 }
 
 /* *** 3: Identify *** */
-void identify_activate(void)
+void identify_activate(void*data)
 {
     send_packet("IDENTIFY", 0, NULL, NULL);
 }
 
 /* *** Standby *** */
 
-void standby_activate(void)
+void standby_activate(void*data)
 {
 	send_packet("STANDBY", 0, NULL, NULL);
 }
 
 /* *** basic colors * ***/
 
-void purple_activate(void)
+void purple_activate(void*data)
 {
 	send_packet("RUN", 0, "fade", "ff22cc:200");
 }
-void pink_activate(void)
+void pink_activate(void*data)
 {
 	send_packet("RUN", 0, "fade", "ff0088:200");
 }
-void red_activate(void)
+void red_activate(void*data)
 {
 	send_packet("RUN", 0, "fade", "ff0000:200");
 }
-void green_activate(void)
+void green_activate(void*data)
 {
 	send_packet("RUN", 0, "fade", "00ff00:200");
 }
-void blue_activate(void)
+void blue_activate(void*data)
 {
 	send_packet("RUN", 0, "fade", "0000ff:200");
 }
-void yellow_activate(void)
+void yellow_activate(void*data)
 {
 	send_packet("RUN", 0, "fade", "ffff00:200");
 }
-void white_activate(void)
+void white_activate(void*data)
 {
 	send_packet("RUN", 0, "fade", "ffffff:200");
 }
 
-void blue_in_air_magenta_otherwise(void)
+void blue_in_air_magenta_otherwise(void*data)
 {
 	send_packet("RUN", 0, "fixed", "aa00aa_aa00aa_0000ff_0000ff");
 }
 
-void map_force_to_intensity_activate(void)
+void map_force_to_intensity_activate(void*data)
 {
 	send_packet("RUN", 0, "force_to_i", "ffffff");
 }
 
-/* *** Colors on movement *** */
-
-void little_red_white_on_movement_activate(void)
-{
-	send_packet("RUN", 0, "fixed", "440000");
-}
-void little_red_white_on_movement_packet_received(struct juggle_packet_t* packet)
-{
-	if (strcmp(packet->action, "MOVING") == 0)
-	{
-		send_packet("RUN", packet->ball, "fade", "ffeedd:50");
-
-	}
-	else if (strcmp(packet->action, "ON_TABLE") == 0)
-	{
-		send_packet("RUN", packet->ball, "fade", "440000:200");
-	}
-}
-
 /* *** Only colors in air *** */
 
-void only_colors_in_air_activate(void)
+void only_colors_in_air_activate(void*data)
 {
 	send_packet("RUN", 1, "fixed",  "000000_000000_ff0000_ff0000_ffffff");
 	send_packet("RUN", 2, "fixed",  "000000_000000_ff0000_ff0000_ffffff");
@@ -406,142 +377,171 @@ void only_colors_in_air_activate(void)
 	send_packet("RUN", 15, "fixed", "000000_000000_00ffff_00ffff_ffffff");
 }
 
+void deactivate_active_program(void)
+{
+    if (active_program && active_program->deactivate)
+	    active_program->deactivate();
+}
 
 // Activate program
 void activate_program(struct juggle_program_t* program)
 {
-    if (active_program && active_program->deactivate)
-	    active_program->deactivate();
-
+	deactivate_active_program();
 	print_string("Activating program %s\n", program->description);
 
     if (program->activate)
-	    program->activate();
+	    program->activate(NULL);
 
 	active_program = program;
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 26
+#define PROGRAMS_COUNT 27
 struct juggle_program_t PROGRAMS[] = {
         {
             "Ping",
+			"ping",
             ping_activate,
             NULL,
             ping_packet_received,
         },
 		{
+			"Queue (for the show",
+			"queue",
+			queue_activate,
+			NULL,
+			queue_packet_received,
+		},
+		{
 			"Test fade",
+			"test-fade",
 			fade_activate,
 			fade_deactivate,
 			NULL,
 		},
 		{
 			"Battery test",
+			"battery-test",
 			battery_test_activate,
 			NULL,
 			battery_test_packet_received,
 		},
 		{
 			"Self test",
+			"self-test",
 			self_test_activate,
 			NULL,
 			NULL,
 		},
 		{
 			"ADC test",
+			"adc-test",
 			adc_test_activate,
 			NULL,
 			adc_test_packet_received,
 		},
         {
             "Identify",
+			"identify",
             identify_activate,
             NULL,
             NULL,
         },
 		{
 			"Standby",
+			"standby",
 			standby_activate,
 			NULL,
 			NULL,
 		},
 
-		{ "* Purple", purple_activate, NULL, NULL, },
-		{ "* Pink", pink_activate, NULL, NULL, },
-		{ "* Red", red_activate, NULL, NULL, },
-		{ "* Green", green_activate, NULL, NULL, },
-		{ "* Blue", blue_activate, NULL, NULL, },
-		{ "* Yellow", yellow_activate, NULL, NULL, },
-		{ "* White", white_activate, NULL, NULL, },
+		{ "* Purple", "purple", purple_activate, NULL, NULL, },
+		{ "* Pink", "pink", pink_activate, NULL, NULL, },
+		{ "* Red", "red", red_activate, NULL, NULL, },
+		{ "* Green", "green", green_activate, NULL, NULL, },
+		{ "* Blue", "blue", blue_activate, NULL, NULL, },
+		{ "* Yellow", "yellow", yellow_activate, NULL, NULL, },
+		{ "* White", "white", white_activate, NULL, NULL, },
 		{
 			"Blue in air, magenta otherwise",
+			"blue-in-air-magenta-otherwise",
 			blue_in_air_magenta_otherwise,
 			NULL,
 			NULL,
 		},
 		{
 			"Only colors in air",
+			"only-colors-in-air",
 			only_colors_in_air_activate,
 			NULL,
 			NULL,
 		},
 		{
 			"Map force to intensity",
+			"map-force-to-intensity",
 			map_force_to_intensity_activate,
 			NULL,
 			NULL,
 		},
 		{
 			"Random light on fall",
+			"random-light-on-fall",
 			light_random_on_fall_activate,
 			NULL,
 			light_random_on_fall_packet_received,
 		},
 		{
-			"Light red on table, white on movement",
-			little_red_white_on_movement_activate,
+			"Light up on movement",
+			"light-up-on-movement",
+			light_up_on_movement_activate,
 			NULL,
-			little_red_white_on_movement_packet_received,
+			light_up_on_movement_packet_received,
 		},
 		{
 			"Wild mountain thyme",
+			"wild-mountain-thyme",
 			wild_mountain_thyme_activate,
             wild_mountain_thyme_deactivate,
 			wild_mountain_packet_received,
 		},
 		{
 			"Charriots of Fire",
+			"charriots-of-fire",
 			charriots_activate,
             charriots_deactivate,
 			charriots_packet_received,
 		},
 		{
 			"The hobbit theme",
+			"the-hobbit",
 			hobbit_activate,
             hobbit_deactivate,
 			hobbit_packet_received,
 		},
 		{
 			"Percussion",
+			"percussion",
 			percussion_activate,
             percussion_deactivate,
 			percussion_packet_received,
 		},
 		{
 			"C Major",
+			"c-major",
 			c_major_activate,
             c_majar_deactivate,
 			c_major_packet_received,
 		},
 		{
 			"Color mixer",
+			"color-mixer", // Don't call through API -> will open window
 			color_mixer_activate,
             NULL,
 			NULL,
 		},
 		{
 			"Fur elise",
+			"fur-elise",
 			fur_elise_activate,
             fur_elise_deactivate,
 			fur_elise_packet_received,
@@ -549,6 +549,14 @@ struct juggle_program_t PROGRAMS[] = {
 };
 
 
+struct juggle_program_t* get_program_from_name(char* name)
+{
+	int i;
+	for (i = 0; i < PROGRAMS_COUNT; i ++)
+		if (strcmp(PROGRAMS[i].name, name) == 0)
+			return & PROGRAMS[i];
+	return NULL;
+}
 
 
 /* =============================[ Serial port ]================================= */
@@ -735,8 +743,11 @@ int main(void)
 	init_fluidsynth();
 	activate_program(& PROGRAMS[0]);
 
+	// Be sure that balls don't act as buttons yet
+	send_packet("BUTTON", 0, "OFF", NULL);
+
 	// Signal handlers
-	signal (SIGINT, (void*)sigint_handler);
+	signal(SIGINT, (void*)sigint_handler);
 
 	// Start data read thread
 	pthread_create(&data_read_thread, NULL, (void *) &data_read_loop, (void *) NULL);
@@ -765,15 +776,15 @@ int main(void)
 	//halfdelay(1);             // Nonblocking getch
 
 	// Status window
-	status_window = newwin(20, 84, 1, 1);
+	status_window = newwin(19, 84, 1, 1);
 
 	// Serial window
-	serial_window = newwin(14, 60, 21, 0);
+	serial_window = newwin(14, 60, 20, 0);
 	scrollok(serial_window, 1);
 	//wsetscrreg(serial_window, 1, 14);
 
     // Programs window
-    programs_window = newwin(28, 60, 35, 0);
+    programs_window = newwin(29, 60, 34, 0);
 
 	// Curses GUI loop
 	while(true)
@@ -856,7 +867,8 @@ int main(void)
 
 		// Idle
 		//sleep(0);
-        msleep(100);
+        //msleep(100);
+		sleep(0);
 	}
 
 	// Clean up windows

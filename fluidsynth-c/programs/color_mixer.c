@@ -30,7 +30,7 @@ void print_color_window(void)
 
 
 
-void color_mixer_activate()
+void color_mixer_activate(void * data)
 {
 	color_window = newwin(6, 50, 10, 2);
 

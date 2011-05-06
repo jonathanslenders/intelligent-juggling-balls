@@ -61,7 +61,7 @@ struct theme_note_t hobbit_theme[] =
 };
 
 
-void hobbit_activate(void)
+void hobbit_activate(void * data)
 {
 	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 74);
 

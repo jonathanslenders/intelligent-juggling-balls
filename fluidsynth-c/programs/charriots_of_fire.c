@@ -115,7 +115,7 @@ struct theme_note_t main_theme_b[] =
 
 
 
-void charriots_activate(void)
+void charriots_activate(void*data)
 {
     // Load the instruments at the right channel
 	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 24);

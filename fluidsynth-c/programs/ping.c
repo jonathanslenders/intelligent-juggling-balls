@@ -8,7 +8,7 @@ pthread_t ping_thread;
 void ping_thread_start(void* data);
 
 /* *** 2: Ping *** */
-void ping_activate(void)
+void ping_activate(void * data)
 {
 	pthread_create(&ping_thread, NULL, (void *) &ping_thread_start, (void *) NULL);
 }

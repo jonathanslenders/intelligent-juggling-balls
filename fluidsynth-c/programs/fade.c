@@ -9,7 +9,7 @@ bool fade_running = false;
 void fade_thread_start(void* data);
 
 /* **** 1: debug **** */
-void fade_activate(void)
+void fade_activate(void * data)
 {
 	fade_running = true;
 	pthread_create(&fade_thread, NULL, (void *) &fade_thread_start, (void *) NULL);

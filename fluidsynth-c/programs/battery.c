@@ -9,7 +9,7 @@ void battery_test_start(void* data);
 
 
 /* *** Battery test ***/
-void battery_test_activate(void)
+void battery_test_activate(void*data)
 {
 	pthread_create(&battery_test_thread, NULL, (void *) &battery_test_start, (void *) NULL);
 }

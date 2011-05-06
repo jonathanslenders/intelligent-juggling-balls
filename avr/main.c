@@ -15,10 +15,10 @@
 // ******** __ Ball config __ *******
 
 #ifndef BALL_ID_STR
-#define BALL_ID_STR "14" // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID_STR "10" // SHOULD BE BETWEEN 1 and 255
 #endif
 #ifndef VERSION_ID
-#define VERSION_ID "0.1.2" // Version number, increment after every change
+#define VERSION_ID "0.1.3" // Version number, increment after every change
 #endif
 
 
@@ -29,9 +29,9 @@
 //#define X_CENTER 128
 
 // Ball 10
-//#define X_CENTER 121
-//#define Y_CENTER 128
-//#define Z_CENTER 128
+#define X_CENTER 121
+#define Y_CENTER 128
+#define Z_CENTER 128
 
 // Ball 11
 //#define X_CENTER 122
@@ -67,9 +67,9 @@
 //#define Z_CENTER 133
 
 // Ball 14
-#define X_CENTER 121
-#define Y_CENTER 134
-#define Z_CENTER 132
+//#define X_CENTER 121
+//#define Y_CENTER 134
+//#define Z_CENTER 132
 
 // Ball 5
 //#define X_CENTER 124
@@ -168,6 +168,8 @@ volatile bool __is_on_table = false;
 volatile unsigned char __last_measurement_x = 0;
 volatile unsigned char __last_measurement_y = 0;
 volatile unsigned char __last_measurement_z = 0;
+
+volatile bool button_mode = false;
 
 // Function pointers to the current light-program.
 // Every effect should implement these callbacks.
@@ -511,7 +513,10 @@ void enter_hand()
 	if (__free_fall_duration > MIN_FREE_FALL_DURATION)
 	{
 		// USART Feedback
-		usart_send_packet("CAUGHT", buffer, NULL);
+		if (!button_mode)
+			usart_send_packet("CAUGHT", buffer, NULL);
+		else
+			usart_send_packet("BUTTON_PRESSED", NULL, NULL);
 
 		// Remember duration of flight.
 		__last_free_fall_duration = __free_fall_duration;
@@ -523,7 +528,8 @@ void enter_hand()
 	else
 	{
 		// USART Feedback (maybe we should disable this packets, to much polution in the air...)
-		usart_send_packet("CAUGHT*", buffer, NULL);
+		if (!button_mode)
+			usart_send_packet("CAUGHT*", buffer, NULL);
 
 		// Program callback
 		__enter_hand_callback(false);
@@ -681,9 +687,6 @@ void set_color(const struct color_t color)
 	blue_led_percentage(color.blue);
 }
 
-
-// ===========================[ Programs ]===================================
-
 // utility for converting a hex_to_int char to an integer
 unsigned char hex_to_int(char c)
 {
@@ -696,6 +699,15 @@ unsigned char hex_to_int(char c)
 	return 0;
 }
 
+void parse_color(struct color_t* color, char* string)
+{
+	color->red   = hex_to_int(string[0]) * 16 + hex_to_int(string[1]);
+	color->green = hex_to_int(string[2]) * 16 + hex_to_int(string[3]);
+	color->blue  = hex_to_int(string[4]) * 16 + hex_to_int(string[5]);
+}
+
+
+// ===========================[ Programs ]===================================
 
 // *****  fixed color
 volatile struct color_t __pr_fixed_color_on_table;
@@ -924,6 +936,49 @@ void pr_alternate_install(char* param)
 	__timer_tick_callback = &dummy_callback;
 }
 
+
+// ****** Pulse color, fade out afterwards
+
+volatile struct color_t __pr_pulse_color1;
+volatile struct color_t __pr_pulse_color2;
+volatile int __pr_pulse_time;
+volatile int __pr_pulse_ticks;
+
+void pr_pulse_tick_callback(void)
+{
+	// Interpolate 0..distance between custom_color..black
+	if (__pr_pulse_ticks < __pr_pulse_time)
+	{
+		__pr_pulse_ticks ++;
+
+		// Now iterpolate between start and end color 
+		float percentage = (float)__pr_pulse_ticks / (float)__pr_pulse_time;
+
+		red_led_percentage((int)__pr_pulse_color1.red + (float)(__pr_pulse_color2.red - __pr_pulse_color1.red) * percentage);
+		green_led_percentage((int)__pr_pulse_color1.green + (float)(__pr_pulse_color2.green - __pr_pulse_color1.green) * percentage);
+		blue_led_percentage((int)__pr_pulse_color1.blue + (float)(__pr_pulse_color2.blue - __pr_pulse_color1.blue) * percentage);
+	}
+}
+
+
+// RUN pulse ffffff_ffffff_150
+void pr_pulse_install(char* param)
+{
+	parse_color(&__pr_pulse_color1, param);
+	parse_color(&__pr_pulse_color2, param + 7);
+
+	// Fade speed
+	if (! sscanf(param+14, "%i", &__pr_pulse_time))
+		__pr_pulse_time = 0;
+	__pr_pulse_ticks = 0;
+
+	set_color(__pr_pulse_color1);
+
+	__enter_hand_callback = &dummy_callback;
+	__leave_hand_callback = &dummy_callback;
+	__timer_tick_callback = &pr_pulse_tick_callback;
+}
+
 // ****** invisible up, comes down in blue.
 
 volatile int pr_rain_drop_timer = 0;
@@ -1001,6 +1056,7 @@ void pr_standby_install(char*param)
 const char* program_names[] = {
 	"fixed",
 	"fade",
+	"pulse",
 	"alternate",
 	"rain",
 	"standby",
@@ -1010,6 +1066,7 @@ const char* program_names[] = {
 void (*program_pointers [])(char*) = {
 	&pr_fixed_color_install,
 	&pr_fade_to_color_install,
+	&pr_pulse_install,
 	&pr_alternate_install,
 	&pr_rain_install,
 	&pr_standby_install,
@@ -1071,19 +1128,48 @@ void self_test(void)
 
 // ===========================[ Input data parser ]===================================
 
+bool meant_for_us(char* ball)
+{
+	// Is this meant for us?
+	// Yes if ball == "0" or our_id in ball. It is a comma separated list.
+	if (strcmp(ball, "0") == 0)
+		return true;
+
+	if (strcmp(ball, BALL_ID_STR) == 0)
+		return true;
+
+	// Comma separated list?
+	char buffer[8];
+	while(*ball)
+	{
+		int i = 0;
+		while(*ball && *ball != ',' && i < 8)
+		{
+			buffer[i] = *ball;
+			ball ++;
+			i ++;
+		}
+		buffer[i] = NULL;
+
+		if (strcmp(buffer, BALL_ID_STR) == 0)
+			return true;
+	}
+
+	return false;
+}
 
 void process_command(char* action, char* ball, char* input_param, char* input_param2)
 {
 	int i;
-
-	if (strcmp(ball, "0") == 0 || strcmp(ball, BALL_ID_STR) == 0)
+	if (meant_for_us(ball))
 	{
 		// RUN: Run program
 		if (strcmp(action, "RUN") == 0)
 		{
-			for (i = 0; i < PROGRAM_COUNT; i ++)
-				if (strcmp(input_param, program_names[i]) == 0)
-					program_pointers[i](input_param2);
+			if (!button_mode)
+				for (i = 0; i < PROGRAM_COUNT; i ++)
+					if (strcmp(input_param, program_names[i]) == 0)
+						program_pointers[i](input_param2);
 		}
 
 		// PING: answer with PONG
@@ -1112,29 +1198,49 @@ void process_command(char* action, char* ball, char* input_param, char* input_pa
 
 		else if (strcmp(action, "STANDBY") == 0)
 		{
-			pr_standby_install("");
+			if (!button_mode)
+				pr_standby_install("");
+		}
+		
+		// BUTTON:
+		// - light don't run any commands when button mode is on.
+		else if (strcmp(action, "BUTTON") == 0)
+		{
+			if (strcmp(input_param, "ON") == 0)
+			{
+				button_mode = true;
+				pr_fixed_color_install("888888");
+			}
+			else if (strcmp(input_param, "OFF") == 0)
+			{
+				button_mode = false;
+				pr_fixed_color_install("222222");
+			}
 		}
 
 		// IDENTIFY: blink leds white for 2 seconds, while ignoring everything else.
 		else if (strcmp(action, "IDENTIFY") == 0)
 		{
-			// Disable all interrupts
-			cli();
-
-			// TODO: read current led intensity
-
-			for (i = 0; i < 10; i ++)
+			if (!button_mode)
 			{
-				all_leds_on();
-				_delay_ms(50);
-				all_leds_off();
-				_delay_ms(50);
+				// Disable all interrupts
+				cli();
+
+				// TODO: read current led intensity
+
+				for (i = 0; i < 10; i ++)
+				{
+					all_leds_on();
+					_delay_ms(50);
+					all_leds_off();
+					_delay_ms(50);
+				}
+
+				// TODO: restore current led intensity
+
+				// Enable all interrupts again
+				sei();
 			}
-
-			// TODO: restore current led intensity
-
-			// Enable all interrupts again
-			sei();
 		}
 	}
 }
@@ -1306,7 +1412,7 @@ int main(void)
 	pr_fixed_color_install("004400_550055_880000_000088_ffffff");
 
 	// Send booted packet
-	usart_send_packet("BOOTED", NULL, NULL);
+	usart_send_packet("BOOTED", VERSION_ID, NULL);
 
 	// Main loop
 	while (1)

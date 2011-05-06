@@ -27,7 +27,7 @@ int percussion_instruments[] =
 
 void percussion_test_thread(void*);
 
-void percussion_activate(void)
+void percussion_activate(void * data)
 {
     // Initialize percussion -> always bank 128, and channel 10 (General MIDI)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);

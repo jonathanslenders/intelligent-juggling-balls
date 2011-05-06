@@ -7,7 +7,7 @@
 
 int fall_count = 6;
 
-void light_random_on_fall_activate(void)
+void light_random_on_fall_activate(void * data)
 {
 	send_packet("RUN", 0, "fade", "111111:500");
 	fall_count = 0;

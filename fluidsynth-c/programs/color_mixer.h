@@ -1,2 +1,2 @@
 
-void color_mixer_activate();
+void color_mixer_activate(void * data);

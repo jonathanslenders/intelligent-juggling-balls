@@ -57,7 +57,7 @@ struct theme_note_t theme[] =
 };
 
 
-void wild_mountain_thyme_activate(void)
+void wild_mountain_thyme_activate(void * data)
 {
 	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 109);
 

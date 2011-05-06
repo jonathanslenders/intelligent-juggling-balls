@@ -107,7 +107,8 @@ struct juggle_packet_t
 struct juggle_program_t
 {
 	char description[256];
-	void (*activate)(void);
+	char name[64];
+	void (*activate)(void* data);
 	void (*deactivate)(void);
 	void (*packet_received)(struct juggle_packet_t* packet);
 };
@@ -122,5 +123,7 @@ extern int fluid_font_id;
 
 void send_packet(char* command, int ball, char* param1, char* param2);
 
+struct juggle_program_t* get_program_from_name(char* name);
+void deactivate_active_program(void);
 
 #endif

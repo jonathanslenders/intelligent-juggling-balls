@@ -29,7 +29,7 @@ int notes[] =
 
 void c_major_test_thread(void* data);
 
-void c_major_activate(void)
+void c_major_activate(void * data)
 {
     // Initialize percussion -> always bank 128, and channel 10 (General MIDI)
 //	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 1);
