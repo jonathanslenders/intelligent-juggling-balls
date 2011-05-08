@@ -15,11 +15,11 @@
 // ******** __ Ball config __ *******
 
 #ifndef BALL_ID_STR
-#define BALL_ID_STR "7" // SHOULD BE BETWEEN 1 and 255
-#define BALL_ID 7       // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID_STR "3" // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID 3       // SHOULD BE BETWEEN 1 and 255
 #endif
 #ifndef VERSION_ID
-#define VERSION_ID "0.1.4" // Version number, increment after every change
+#define VERSION_ID "0.1.5" // Version number, increment after every change
 #endif
 
 
@@ -1182,6 +1182,9 @@ bool meant_for_us(char* ball)
 
 		if (strcmp(buffer, BALL_ID_STR) == 0)
 			return true;
+
+		if (*ball == ',')
+			ball ++;
 	}
 
 	return false;
