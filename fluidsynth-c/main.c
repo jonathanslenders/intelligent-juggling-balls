@@ -206,19 +206,14 @@ void process_packet(struct juggle_packet_t* packet)
 
 void send_packet(char* command, int ball, char* param1, char* param2)
 {
-    char buffer[256];
-    if (! param1) param1 = "";
-    if (! param2) param2 = "";
+	char ball2[4];
+	sprintf(ball2, "%i", ball);
+	send_packet2(command, ball2, param1, param2);
 
-    // Show outgoing packet on console
-    snprintf(buffer, 256, "[out] %s %i %s %s\n", command, ball, param1, param2);
-    print_string("%s", buffer);
-
-    // Sent packet
-    int length = snprintf(buffer, 256, "%s %i %s %s\n", command, ball, param1, param2);
-    write(serial_port, buffer, length);
-
+		// TODO: move following code to send_packet2, and parse char*ball instead
 	// When we sent a 'RUN' command, keep track in the state table
+	/*
+    char buffer[256];
 	if (strcmp(command, "RUN") == 0)
 	{
 		if (ball > 0)
@@ -230,7 +225,24 @@ void send_packet(char* command, int ball, char* param1, char* param2)
 				strcpy(juggle_states[i].last_run_command, buffer);
 		}
 	}
+	*/
 }
+
+void send_packet2(char* command, char* ball, char* param1, char* param2)
+{
+    char buffer[256];
+    if (! param1) param1 = "";
+    if (! param2) param2 = "";
+
+    // Show outgoing packet on console
+    snprintf(buffer, 256, "[out] %s %s %s %s\n", command, ball, param1, param2);
+    print_string("%s", buffer);
+
+    // Sent packet
+    int length = snprintf(buffer, 256, "%s %s %s %s\n", command, ball, param1, param2);
+    write(serial_port, buffer, length);
+}
+
 
 
 /* ===============================[ Fluid synth ]============================ */
@@ -396,7 +408,7 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 27
+#define PROGRAMS_COUNT 28
 struct juggle_program_t PROGRAMS[] = {
         {
             "Ping",
@@ -529,7 +541,7 @@ struct juggle_program_t PROGRAMS[] = {
 			"C Major",
 			"c-major",
 			c_major_activate,
-            c_majar_deactivate,
+            c_major_deactivate,
 			c_major_packet_received,
 		},
 		{
@@ -545,6 +557,13 @@ struct juggle_program_t PROGRAMS[] = {
 			fur_elise_activate,
             fur_elise_deactivate,
 			fur_elise_packet_received,
+		},
+		{
+			"The end",
+			"the-end",
+			the_end_activate,
+			NULL,
+			NULL,
 		},
 };
 
@@ -776,15 +795,15 @@ int main(void)
 	//halfdelay(1);             // Nonblocking getch
 
 	// Status window
-	status_window = newwin(19, 84, 1, 1);
+	status_window = newwin(18, 84, 0, 1);
 
 	// Serial window
-	serial_window = newwin(14, 60, 20, 0);
+	serial_window = newwin(14, 60, 18, 0);
 	scrollok(serial_window, 1);
 	//wsetscrreg(serial_window, 1, 14);
 
     // Programs window
-    programs_window = newwin(29, 60, 34, 0);
+    programs_window = newwin(31, 60, 31, 0);
 
 	// Curses GUI loop
 	while(true)

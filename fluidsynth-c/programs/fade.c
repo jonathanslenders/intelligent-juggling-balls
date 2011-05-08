@@ -1,6 +1,7 @@
 #include <time.h> /* for clock() */
 #include <pthread.h> /* posix threading */
 #include "../main.h"
+#include "../utils.h"
 
 
 pthread_t fade_thread;
@@ -18,34 +19,6 @@ void fade_activate(void * data)
 void fade_deactivate(void)
 {
 	fade_running = false;
-}
-
-void interpolate(int pos, int* r, int* g, int* b)
-{
-	// From red to blue
-	if (pos < 256/3)
-	{
-		pos *= 3;
-		*r = 255-pos;
-		*g = pos;
-		*b = 0;
-	}
-	else if (pos < 256*2/3)
-	{
-		pos -= (256/3);
-		pos *= 3;
-		*r = 0;
-		*g = 255-pos;
-		*b = pos;
-	}
-	else
-	{
-		pos -= (256*2/3);
-		pos *= 3;
-		*r = pos;
-		*g = 0;
-		*b = 255-pos;
-	}
 }
 
 void fade_thread_start(void* data)

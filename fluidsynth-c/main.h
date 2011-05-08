@@ -60,6 +60,7 @@
 #define C_MAJOR__F4 65
 #define C_MAJOR__G4 67
 #define C_MAJOR__A4 69
+#define C_MAJOR__B_flat_4 70 // Does not really belong in C major
 #define C_MAJOR__B4 71
 
 #define C_MAJOR__C5 72
@@ -74,7 +75,7 @@
 
 // State machine
 
-#define BALL_COUNT 16
+#define BALL_COUNT 15
 
 struct juggle_ball_state_t
 {
@@ -122,6 +123,7 @@ extern int fluid_font_id;
 
 
 void send_packet(char* command, int ball, char* param1, char* param2);
+void send_packet2(char* command, char* ball, char* param1, char* param2);
 
 struct juggle_program_t* get_program_from_name(char* name);
 void deactivate_active_program(void);

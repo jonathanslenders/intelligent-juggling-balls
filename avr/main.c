@@ -15,88 +15,116 @@
 // ******** __ Ball config __ *******
 
 #ifndef BALL_ID_STR
-#define BALL_ID_STR "10" // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID_STR "7" // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID 7       // SHOULD BE BETWEEN 1 and 255
 #endif
 #ifndef VERSION_ID
-#define VERSION_ID "0.1.3" // Version number, increment after every change
+#define VERSION_ID "0.1.4" // Version number, increment after every change
 #endif
 
 
 // Accellerometer center values (measured in free fall.)
 
-//#define Z_CENTER 128
-//#define Y_CENTER 128
-//#define X_CENTER 128
+#if BALL_ID == 1
+	// Ball 1
+	#define X_CENTER 123
+	#define Y_CENTER 133
+	#define Z_CENTER 127
+#endif
 
-// Ball 10
-#define X_CENTER 121
-#define Y_CENTER 128
-#define Z_CENTER 128
+#if BALL_ID == 2
+	// Ball 2
+	#define X_CENTER 125
+	#define Y_CENTER 133
+	#define Z_CENTER 131
+#endif
 
-// Ball 11
-//#define X_CENTER 122
-//#define Y_CENTER 135
-//#define Z_CENTER 137
+#if BALL_ID == 3
+	// Ball 3
+	#define X_CENTER 122
+	#define Y_CENTER 133
+	#define Z_CENTER 132
+#endif
 
+#if BALL_ID == 4
+	// Ball 4
+	#define X_CENTER 125
+	#define Y_CENTER 132
+	#define Z_CENTER 132
+#endif
+
+#if BALL_ID == 5
+	// Ball 5
+	#define X_CENTER 124
+	#define Y_CENTER 134
+	#define Z_CENTER 127
+#endif
+
+#if BALL_ID == 6
+	// Ball 6
+	#define X_CENTER 123
+	#define Y_CENTER 133
+	#define Z_CENTER 133
+#endif
+
+#if BALL_ID == 7
+	// Ball 7
+	#define X_CENTER 122
+	#define Y_CENTER 132
+	#define Z_CENTER 137
+#endif
+
+#if BALL_ID == 8
+	// Ball 8
+	#define X_CENTER 124
+	#define Y_CENTER 134
+	#define Z_CENTER 131
+#endif
+
+#if BALL_ID == 9
+	// Ball 9
+	#define X_CENTER 120
+	#define Y_CENTER 133
+	#define Z_CENTER 132
+#endif
+
+#if BALL_ID == 10
+	// Ball 10
+	#define X_CENTER 121
+	#define Y_CENTER 128
+	#define Z_CENTER 128
+#endif
+
+#if BALL_ID == 11
+	// Ball 11
+	#define X_CENTER 122
+	#define Y_CENTER 135
+	#define Z_CENTER 137
+#endif
+
+#if BALL_ID == 13
 // Ball 13
-//#define X_CENTER 125
-//#define Y_CENTER 134
-//#define Z_CENTER 133
+	#define X_CENTER 125
+	#define Y_CENTER 134
+	#define Z_CENTER 133
+#endif
 
-// Ball 8
-//#define X_CENTER 124
-//#define Y_CENTER 134
-//#define Z_CENTER 131
+#if BALL_ID == 14
+	// Ball 14
+	#define X_CENTER 121
+	#define Y_CENTER 134
+	#define Z_CENTER 132
+#endif
 
-
-// Ball 9
-//#define X_CENTER 120
-//#define Y_CENTER 133
-//#define Z_CENTER 132
-
-
-// Ball 7
-//#define X_CENTER 122
-//#define Y_CENTER 132
-//#define Z_CENTER 137
-
-
-// Ball 6
-//#define X_CENTER 123
-//#define Y_CENTER 133
-//#define Z_CENTER 133
-
-// Ball 14
-//#define X_CENTER 121
-//#define Y_CENTER 134
-//#define Z_CENTER 132
-
-// Ball 5
-//#define X_CENTER 124
-//#define Y_CENTER 134
-//#define Z_CENTER 127
-
-
-// Ball 4
-//#define X_CENTER 125
-//#define Y_CENTER 132
-//#define Z_CENTER 132
-
-
-// Ball 3
-//#define X_CENTER 122
-//#define Y_CENTER 133
-//#define Z_CENTER 132
-
-// Ball 2
-//#define X_CENTER 125
-//#define Y_CENTER 133
-//#define Z_CENTER 131
-
-// Ball 1
-//#define X_CENTER 123
-//#define Y_CENTER 133
-//#define Z_CENTER 127
+#ifndef Z_CENTER
+	#define Z_CENTER 128
+#endif
+#ifndef Y_CENTER
+	#define Y_CENTER 128
+#endif
+#ifndef X_CENTER
+	#define X_CENTER 128
+#endif
 
 // ******** __ end of ball config __ *******
 
@@ -496,7 +524,8 @@ void leave_hand()
 	snprintf(buffer, 8, "%u", force);
 
 	// USART Feedback
-	usart_send_packet("THROWN", buffer, NULL);
+	if (!button_mode)
+		usart_send_packet("THROWN", buffer, NULL);
 
 	// Program callback
 	__leave_hand_callback();

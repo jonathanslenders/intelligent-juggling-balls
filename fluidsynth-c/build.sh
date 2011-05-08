@@ -1,2 +1,2 @@
 #!/bin/bash
-gcc programs/*.c *.c -lcurses -lfluidsynth
+gcc programs/*.c programs/show/*.c *.c -lcurses -lfluidsynth

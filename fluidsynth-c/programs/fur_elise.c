@@ -13,14 +13,36 @@ int next_color = 0;
 fluid_player_t* player;
 
 
-#define DEFAULT_BPM 40
+#define DEFAULT_BPM 45
+
+
+bool any_in_free_fall(ball1, ball2, ball3)
+{
+	return (
+		juggle_states[ball1-1].in_free_fall |
+		juggle_states[ball2-1].in_free_fall |
+		juggle_states[ball3-1].in_free_fall);
+}
 
 
 int midi_callback(void *data, fluid_midi_event_t* event)
 {
 print_string("Channel %i", fluid_midi_event_get_channel(event));
+
+	// Depending on who is juggling, we continue in other instrument.
+	if (any_in_free_fall(1, 2, 3))
+		fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 13); // marimba
+
+	else if (any_in_free_fall(4, 5, 6))
+		fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 46); 
+
+	else
+		fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 1); // piano
+
 //	fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 18); // accordeon/organ
-	fluid_synth_cc(synth, fluid_midi_event_get_channel(event), 10, 127); /* 10=pan, between 0 and 127 */
+
+
+//	fluid_synth_cc(synth, fluid_midi_event_get_channel(event), 10, 127); /* 10=pan, between 0 and 127 */
 
 
 	// Calculate duration between last note and now
@@ -126,7 +148,7 @@ void fur_elise_packet_received(struct juggle_packet_t* packet)
 //			fluid_player_set_bpm(player, bpm);
 		}
 		else
-			fluid_player_set_bpm(player, 60);
+			fluid_player_set_bpm(player, DEFAULT_BPM);
 
 		last_catch = now;
 	}

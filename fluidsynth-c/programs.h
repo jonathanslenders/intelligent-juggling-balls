@@ -12,3 +12,5 @@
 #include "programs/random_flash_on_fall.h"
 #include "programs/wild_mountain_thyme.h"
 #include "programs/queue.h"
+
+#include "programs/show/the_end.h"
