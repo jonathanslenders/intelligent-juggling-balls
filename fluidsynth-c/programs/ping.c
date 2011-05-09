@@ -1,5 +1,6 @@
 #include <time.h> /* for clock() */
 #include <pthread.h> /* posix threading */
+#include <string.h> /* strncpy */
 #include "../main.h"
 
 
@@ -38,6 +39,8 @@ void ping_packet_received(struct juggle_packet_t* packet)
 		clock_t sent = juggle_states[packet->ball - 1].ping_sent;
 		int duration = (received - sent) / (CLOCKS_PER_SEC/1000); // millisec
 		juggle_states[packet->ball - 1].ping_time = duration;
+
+		strncpy(juggle_states[packet->ball - 1].firmware_version, packet->param1, sizeof(juggle_states[0].firmware_version));
 	}
 }
 

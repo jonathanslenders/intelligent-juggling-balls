@@ -15,8 +15,8 @@
 // ******** __ Ball config __ *******
 
 #ifndef BALL_ID_STR
-#define BALL_ID_STR "14" // SHOULD BE BETWEEN 1 and 255
-#define BALL_ID 14       // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID_STR "3" // SHOULD BE BETWEEN 1 and 255
+#define BALL_ID 3       // SHOULD BE BETWEEN 1 and 255
 #endif
 #ifndef VERSION_ID
 #define VERSION_ID "0.1.5" // Version number, increment after every change

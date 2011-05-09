@@ -680,7 +680,7 @@ void print_status_window(void)
 	for (i = 0; i < BALL_COUNT; i++)
 	{
 		char buffer[256];
-		snprintf(buffer, 256, "%3i %5imv     %-3s     %-3s    %5i     %5i  %5ims  %s",
+		snprintf(buffer, 256, "%3i %5imv     %-3s     %-3s    %5i     %5i  %5ims %8s  %s",
 						i+1, 
 						juggle_states[i].voltage,
 						(juggle_states[i].in_free_fall ? "Yes": "No"),
@@ -688,6 +688,7 @@ void print_status_window(void)
 						juggle_states[i].throws,
 						juggle_states[i].catches,
 						juggle_states[i].ping_time,
+						juggle_states[i].firmware_version,
 						juggle_states[i].last_run_command 
 						);
 		mvwprintw(status_window, 2+i, 1, buffer);
@@ -698,7 +699,7 @@ void print_status_window(void)
 	wattron(status_window, COLOR_PAIR(1));
 	mvwprintw(status_window, 0, 4, "Juggling balls");
 	wattroff(status_window, COLOR_PAIR(1));
-	mvwprintw(status_window, 1, 1, "Ball | Power | In air | On table | Throws | Catches | Ping | Program");
+	mvwprintw(status_window, 1, 1, "Ball | Power | In air | On table | Throws | Catches | Ping | Firmware | Program");
 
 	wrefresh(status_window);
 }
@@ -795,7 +796,7 @@ int main(void)
 	//halfdelay(1);             // Nonblocking getch
 
 	// Status window
-	status_window = newwin(18, 84, 0, 1);
+	status_window = newwin(18, 94, 0, 1);
 
 	// Serial window
 	serial_window = newwin(14, 60, 18, 0);

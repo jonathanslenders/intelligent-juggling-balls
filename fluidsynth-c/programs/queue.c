@@ -4,7 +4,7 @@
 #include "../main.h"
 
 
-#define BUTTON_ID 7
+#define BUTTON_ID 14
 
 // Queue configuration
 
@@ -38,12 +38,12 @@ struct queue_entry_t queue[] = {
 	{ proxy_program, "yellow"},
 
 	// Play 'broeder jacob', followed by playing tetris tune.
-	{ proxy_program, "c-major"}, 
 
 	{ intermezzo, NULL },
 	{ intermezzo2, NULL },
 	{ intermezzo3, NULL },
 
+	{ proxy_program, "c-major"}, 
 
 	{ proxy_program, "fur-elise"},
 
