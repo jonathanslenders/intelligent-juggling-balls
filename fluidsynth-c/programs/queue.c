@@ -94,7 +94,7 @@ void intermezzo(void*data)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
 	int sound = 61; // Low Bongo
 	fluid_synth_noteon(synth, 10, sound, 127);
-	send_packet2("RUN", "1,2,3", "pulse", "ffffff_aa0044:200");
+	send_packet2("RUN", "2,3", "pulse", "ffffff_aa0044:200");
 }
 void intermezzo2(void*data)
 {
@@ -102,7 +102,7 @@ void intermezzo2(void*data)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
 	int sound = 61; // Low Bongo
 	fluid_synth_noteon(synth, 10, sound, 127);
-	send_packet2("RUN", "4,5,6", "pulse", "ffffff_44aa00:200");
+	send_packet2("RUN", "4,5,1", "pulse", "ffffff_44aa00:200");
 }
 void intermezzo3(void*data)
 {
@@ -110,7 +110,7 @@ void intermezzo3(void*data)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
 	int sound = 61; // Low Bongo
 	fluid_synth_noteon(synth, 10, sound, 127);
-	send_packet2("RUN", "7,8,9", "pulse", "ffffff_4400aa:200");
+	send_packet2("RUN", "6,7,8", "pulse", "ffffff_4400aa:200");
 }
 
 
