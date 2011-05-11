@@ -73,7 +73,7 @@ void hobbit_activate(void * data)
 
 void hobbit_deactivate(void)
 {
-	fluid_synth_cc(synth, 0, 123, 0);
+	fluid_synth_cc(synth, 0, 123, 0); // 123 == all notes off
 }
 
 

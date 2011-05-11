@@ -104,7 +104,7 @@ void fur_elise_activate(void* data)
 //	settings = new_fluid_settings();
 //	mdriver = new_fluid_midi_driver(settings, handle_midi_event, NULL);
 
-	player = new_fluid_player(synth);
+	//player = new_fluid_player(synth);
 	player = new_fluid_player2(synth, midi_callback, NULL);
 
 	fluid_player_add(player, "fur-elise.mid");

@@ -408,7 +408,7 @@ void activate_program(struct juggle_program_t* program)
 }
 
 // List of all available programs
-#define PROGRAMS_COUNT 28
+#define PROGRAMS_COUNT 29
 struct juggle_program_t PROGRAMS[] = {
         {
             "Ping",
@@ -563,6 +563,13 @@ struct juggle_program_t PROGRAMS[] = {
 			"the-end",
 			the_end_activate,
 			NULL,
+			NULL,
+		},
+		{
+			"Intro",
+			"intro",
+			intro_activate,
+			intro_deactivate,
 			NULL,
 		},
 };

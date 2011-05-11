@@ -36,7 +36,7 @@ void percussion_activate(void * data)
 	send_packet("RUN", 0, "fixed", "004400 880088 ff0000 0000ff ffffff");
 
     // Test code for discovering instruments.
-    if(0){
+    if(1){
         pthread_t test_thread;
         pthread_create(&test_thread, NULL, (void *) &percussion_test_thread, (void *) NULL);
     }
