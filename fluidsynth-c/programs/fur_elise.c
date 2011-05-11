@@ -30,10 +30,10 @@ int midi_callback(void *data, fluid_midi_event_t* event)
 print_string("Channel %i", fluid_midi_event_get_channel(event));
 
 	// Depending on who is juggling, we continue in other instrument.
-	if (any_in_free_fall(1, 2, 3))
+	if (any_in_free_fall(11, 2, 3))
 		fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 13); // marimba
 
-	else if (any_in_free_fall(4, 5, 6))
+	else if (any_in_free_fall(4, 5, 1))
 		fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 46); 
 
 	else

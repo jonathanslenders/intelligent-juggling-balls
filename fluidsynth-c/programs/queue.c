@@ -8,6 +8,7 @@
 
 // Queue configuration
 
+void black(void*data);
 struct queue_entry_t {
 	void(*program_func)(void*data);
 	void* data;
@@ -38,6 +39,8 @@ struct queue_entry_t queue[] = {
 	{ proxy_program, "yellow"},
 
 	// Play 'broeder jacob', followed by playing tetris tune.
+
+	{ black, NULL },
 
 	{ intermezzo, NULL },
 	{ intermezzo2, NULL },
@@ -83,6 +86,10 @@ void activate_queue_entry(int position)
 	fluid_synth_cc(synth, 10, 7, 127); /* 7=volume, between 0 and 127 */
 }
 
+void black(void*data)
+{
+	send_packet("RUN", 0, "fixed", "000000");
+}
 
 // Before fur elise
 void intermezzo(void*data)
@@ -94,7 +101,7 @@ void intermezzo(void*data)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
 	int sound = 61; // Low Bongo
 	fluid_synth_noteon(synth, 10, sound, 127);
-	send_packet2("RUN", "2,3", "pulse", "ffffff_aa0044:200");
+	send_packet2("RUN", "2,3,4,9,10,11", "pulse", "ffffff_aa0044:200");
 }
 void intermezzo2(void*data)
 {
@@ -102,7 +109,7 @@ void intermezzo2(void*data)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
 	int sound = 61; // Low Bongo
 	fluid_synth_noteon(synth, 10, sound, 127);
-	send_packet2("RUN", "4,5,1", "pulse", "ffffff_44aa00:200");
+	send_packet2("RUN", "6,5,1", "pulse", "ffffff_44aa00:200");
 }
 void intermezzo3(void*data)
 {
@@ -110,7 +117,7 @@ void intermezzo3(void*data)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
 	int sound = 61; // Low Bongo
 	fluid_synth_noteon(synth, 10, sound, 127);
-	send_packet2("RUN", "6,7,8", "pulse", "ffffff_4400aa:200");
+	send_packet2("RUN", "7,8", "pulse", "ffffff_4400aa:200");
 }
 
 
