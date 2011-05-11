@@ -55,7 +55,6 @@ struct queue_entry_t queue[] = {
 
 	// The end
 	{ proxy_program, "green"},
-	{ proxy_program, "blue"},
 	{ proxy_program, "red"},
 	{ proxy_program, "the-end"},
 };
@@ -82,6 +81,11 @@ void proxy_program(void*data)
 
 void activate_queue_entry(int position)
 {
+	// Turn all notes off
+	int i;
+	for (i = 0; i < 32; i ++)
+		fluid_synth_cc(synth, i, 123, 0); // 123 == all notes off
+
 	deactivate_proxied_program();
 	queue[position].program_func(queue[position].data);
 
@@ -129,9 +133,6 @@ void queue_activate(void*data)
 {
 	last_next_command_received = clock();
 
-	// Turn all notes off
-	fluid_synth_cc(synth, 0, 123, 0); // 123 == all notes off
-
 	// Make ball 14 a button
 	send_packet("BUTTON", NEXT_BUTTON_ID, "ON", NULL);
 	send_packet("BUTTON", PREV_BUTTON_ID, "ON", NULL);
@@ -150,9 +151,9 @@ void queue_deactivate(void*data)
 void queue_packet_received(struct juggle_packet_t * data)
 {
 	clock_t received = clock();
-	int duration = (last_next_command_received - received) / (CLOCKS_PER_SEC/1000); // millisec
+	int duration = (received - last_next_command_received) / (CLOCKS_PER_SEC/1000); // millisec
 
-	if (strcmp(data->action, "BUTTON_PRESSED") == 0)// && duration > 2000)
+	if (strcmp(data->action, "BUTTON_PRESSED") == 0 && duration > 2000)
 	{
 		last_next_command_received = received;
 
