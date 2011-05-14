@@ -16,15 +16,15 @@ fluid_player_t* player;
 #define DEFAULT_BPM 45
 
 // Sitar balls
-#define BALL_A_1 11
-#define BALL_A_2 2
-#define BALL_A_3 3
+#define BALL_A_1 2
+#define BALL_A_2 3
+#define BALL_A_3 4
 
 // Recorder balls
-#define BALL_B_1 6
-#define BALL_B_2 7
-#define BALL_B_3 8
-	// -> The others are piano
+#define BALL_B_1 7
+#define BALL_B_2 8
+#define BALL_B_3 9
+	// -> The others (1,5,6) are piano
 
 
 bool any_in_free_fall(ball1, ball2, ball3)
@@ -137,6 +137,8 @@ void fur_elise_activate(void* data)
 	//fluid_player_add(player, "mb01.mid");
 	fluid_player_play(player);
 	sleep(1);
+	fluid_player_set_bpm(player,5); // slow start
+	sleep(2);
 	fluid_player_set_bpm(player,0); // pause
 //	fluid_player_set_bpm(player,DEFAULT_BPM); // pause
 

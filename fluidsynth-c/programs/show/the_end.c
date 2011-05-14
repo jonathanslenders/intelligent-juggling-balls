@@ -27,15 +27,30 @@ int my_random(int max)
 	return rand() / (RAND_MAX / max + 1);
 }
 
+void the_end_thread(void* data);
+
 void the_end_activate(void * data)
 {
+	pthread_t thread;
+	pthread_create(&thread, NULL, (void *) &the_end_thread, (void *) NULL);
+
     // Initialize percussion -> always bank 128, and channel 10 (General MIDI)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
+	fluid_synth_program_select(synth, 1, fluid_font_id, 0, 127); // gunshot
+	fluid_synth_cc(synth, 10, 7, 127); /* 7=volume, between 0 and 127 */
+	fluid_synth_cc(synth, 1, 7, 127); /* 7=volume, between 0 and 127 */
 
+}
 
+void the_end_thread(void* data)
+{
 	// send_packet("RUN", 0, "pulse", "FFFFFF_000000:400");
 
 	//randomize(); // Random start
+
+	// lights off
+	send_packet("RUN", 0, "fade", "000000:200");
+
 
 	int i;
 	for (i = 0; i < 80; i ++)
@@ -57,6 +72,8 @@ void the_end_activate(void * data)
         	fluid_synth_noteon(synth, 10, sounds[1], 100);
 		else
         	fluid_synth_noteon(synth, 10, sounds[2], 100);
+
+		fluid_synth_noteon(synth, 1, 60, 100);
 	}
 
 	for (i = 0; i < 3; i ++)

@@ -6,7 +6,7 @@ fluid_player_t* player;
 
 void intro_activate(void * data)
 {
-	send_packet("RUN", 0, "fixed", "220000");
+	send_packet("RUN", 0, "fixed", "010000");
 
 	// Start background music
 	player = new_fluid_player2(synth, NULL, NULL);
@@ -14,7 +14,7 @@ void intro_activate(void * data)
 	fluid_player_play(player);
 
 	// Slowly fade in
-	send_packet("RUN", 0, "fade", "ff1111:8000");
+	send_packet("RUN", 0, "fade", "ff1111:10000");
 }
 
 void intro_deactivate(void)

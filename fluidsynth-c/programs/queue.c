@@ -159,6 +159,9 @@ void queue_packet_received(struct juggle_packet_t * data)
 	{
 		last_next_command_received = received;
 
+		// Reset synthesizer
+		fluid_synth_system_reset(synth);
+
 		if (data->ball == NEXT_BUTTON_ID)
 		{
 			print_string("Button pressed, next part of the show");

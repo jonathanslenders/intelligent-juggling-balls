@@ -15,15 +15,15 @@
 #define CHORD3_2 66 // Fs4 |- D
 #define CHORD3_3 69 // A4 |
 
-#define BALL1_1 1
-#define BALL1_2 2
-#define BALL1_3 3
-#define BALL1 "1,2,3"
+#define BALL1_1 2
+#define BALL1_2 3
+#define BALL1_3 4
+#define BALL1 "2,3,4"
 
-#define BALL2_1 4
+#define BALL2_1 1
 #define BALL2_2 5
 #define BALL2_3 6
-#define BALL2 "4,5,6"
+#define BALL2 "1,5,6"
 
 #define BALL3_1 7
 #define BALL3_2 8
@@ -69,26 +69,79 @@ void three_chords_activate_thread(void* data)
 	send_packet("RUN", 0, "fixed", "000000");
 	sleep(1);
 
-	// Light channel 1
+	// Ready for part 1
+
 	fluid_synth_noteon(synth, 1, CHORD1_1, 127);
 	fluid_synth_noteon(synth, 1, CHORD1_2, 127);
 	fluid_synth_noteon(synth, 1, CHORD1_3, 127);
 	send_packet2("RUN", BALL1, "pulse", "ffffff_888800:200");
 
 	sleep(1);
+	fluid_synth_noteoff(synth, 1, CHORD1_1);
+	fluid_synth_noteoff(synth, 1, CHORD1_2);
+	fluid_synth_noteoff(synth, 1, CHORD1_3);
 
 	fluid_synth_noteon(synth, 2, CHORD2_1, 127);
 	fluid_synth_noteon(synth, 2, CHORD2_2, 127);
 	fluid_synth_noteon(synth, 2, CHORD2_3, 127);
 	send_packet2("RUN", BALL2, "pulse", "ffffff_008888:200");
 
-
 	sleep(1);
+	fluid_synth_noteoff(synth, 2, CHORD2_1);
+	fluid_synth_noteoff(synth, 2, CHORD2_2);
+	fluid_synth_noteoff(synth, 2, CHORD2_3);
 
 	fluid_synth_noteon(synth, 3, CHORD3_1, 127);
 	fluid_synth_noteon(synth, 3, CHORD3_2, 127);
 	fluid_synth_noteon(synth, 3, CHORD3_3, 127);
 	send_packet2("RUN", BALL3, "pulse", "ffffff_880088:200");
+
+	sleep(1);
+	fluid_synth_noteoff(synth, 3, CHORD3_1);
+	fluid_synth_noteoff(synth, 3, CHORD3_2);
+	fluid_synth_noteoff(synth, 3, CHORD3_3);
+
+	initialized = true;
+
+
+	// Ready for part 2
+	sleep(18);
+	initialized = false;
+
+	fluid_synth_program_select(synth, 1, fluid_font_id, 0, 66); // 66
+	fluid_synth_program_select(synth, 2, fluid_font_id, 0, 66); // 66
+	fluid_synth_program_select(synth, 3, fluid_font_id, 0, 66); // 66
+
+	fluid_synth_noteon(synth, 1, CHORD1_1, 127);
+	fluid_synth_noteon(synth, 1, CHORD1_2, 127);
+	fluid_synth_noteon(synth, 1, CHORD1_3, 127);
+	send_packet2("RUN", BALL1, "pulse", "ffffff_888800:200");
+
+	sleep(1);
+	fluid_synth_noteoff(synth, 1, CHORD1_1);
+	fluid_synth_noteoff(synth, 1, CHORD1_2);
+	fluid_synth_noteoff(synth, 1, CHORD1_3);
+
+	fluid_synth_noteon(synth, 2, CHORD2_1, 127);
+	fluid_synth_noteon(synth, 2, CHORD2_2, 127);
+	fluid_synth_noteon(synth, 2, CHORD2_3, 127);
+	send_packet2("RUN", BALL2, "pulse", "ffffff_008888:200");
+
+	sleep(1);
+	fluid_synth_noteoff(synth, 2, CHORD2_1);
+	fluid_synth_noteoff(synth, 2, CHORD2_2);
+	fluid_synth_noteoff(synth, 2, CHORD2_3);
+
+	fluid_synth_noteon(synth, 3, CHORD3_1, 127);
+	fluid_synth_noteon(synth, 3, CHORD3_2, 127);
+	fluid_synth_noteon(synth, 3, CHORD3_3, 127);
+	send_packet2("RUN", BALL3, "pulse", "ffffff_880088:200");
+
+	sleep(1);
+	fluid_synth_noteoff(synth, 3, CHORD3_1);
+	fluid_synth_noteoff(synth, 3, CHORD3_2);
+	fluid_synth_noteoff(synth, 3, CHORD3_3);
+
 
 	initialized = true;
 }

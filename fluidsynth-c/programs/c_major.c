@@ -51,9 +51,9 @@ void c_major_activate(void * data)
 	// Send colors
 	send_packet("RUN", 0, "fade", "000000:300");
 	sleep(1);
-	for(i = 0; i < BALL_COUNT; i ++)
+	for(i = 0; i < NOTE_COUNT; i ++)
 	{
-		int pos = ( 255*i/BALL_COUNT);
+		int pos = ( 255*i/NOTE_COUNT);
 		int r,g,b;
 		int r2,g2,b2;
 		interpolate(pos, &r, &g, &b);
