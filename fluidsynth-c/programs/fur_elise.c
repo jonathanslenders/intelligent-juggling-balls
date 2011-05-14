@@ -15,9 +15,23 @@ fluid_player_t* player;
 
 #define DEFAULT_BPM 45
 
+// Sitar balls
+#define BALL_A_1 11
+#define BALL_A_2 2
+#define BALL_A_3 3
+
+// Recorder balls
+#define BALL_B_1 6
+#define BALL_B_2 7
+#define BALL_B_3 8
+	// -> The others are piano
+
 
 bool any_in_free_fall(ball1, ball2, ball3)
 {
+	return (last_ball == ball1 || last_ball == ball2 | last_ball == ball3);
+
+
 	return (
 		juggle_states[ball1-1].in_free_fall |
 		juggle_states[ball2-1].in_free_fall |
@@ -29,15 +43,27 @@ int midi_callback(void *data, fluid_midi_event_t* event)
 {
 print_string("Channel %i", fluid_midi_event_get_channel(event));
 
+	int channel = fluid_midi_event_get_channel(event);
+
 	// Depending on who is juggling, we continue in other instrument.
-	if (any_in_free_fall(11, 2, 3))
-		fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 13); // marimba
-
-	else if (any_in_free_fall(4, 5, 1))
-		fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 46); 
-
-	else
-		fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 1); // piano
+	if (any_in_free_fall(BALL_A_1, BALL_A_2, BALL_A_3))
+	{
+		//fluid_synth_program_select(synth, channel, fluid_font_id, 0, 13); // marimba
+		fluid_synth_program_select(synth, channel, fluid_font_id, 0, 105); // Sitar
+		fluid_synth_cc(synth, channel, 10, 0); /* 10=pan, between 0 and 127 */
+	}
+	else if (any_in_free_fall(BALL_B_1, BALL_B_2, BALL_B_3))
+	{
+		//fluid_synth_program_select(synth, channel, fluid_font_id, 0, 46);  // harp
+		//fluid_synth_program_select(synth, channel, fluid_font_id, 0, 28);  // guitar
+		fluid_synth_program_select(synth, channel, fluid_font_id, 0, 75);  // recorder
+		fluid_synth_cc(synth, channel, 10, 127); /* 10=pan, between 0 and 127 */
+	}
+	else //if (any_in_free_fall(4, 5, 1))
+	{
+		fluid_synth_program_select(synth, channel, fluid_font_id, 0, 1); // piano
+		fluid_synth_cc(synth, channel, 10, 64); /* 10=pan, between 0 and 127 */
+	}
 
 //	fluid_synth_program_select(synth, fluid_midi_event_get_channel(event), fluid_font_id, 0, 18); // accordeon/organ
 
@@ -114,10 +140,6 @@ void fur_elise_activate(void* data)
 	fluid_player_set_bpm(player,0); // pause
 //	fluid_player_set_bpm(player,DEFAULT_BPM); // pause
 
-//int j;
-//for (j = 0; j < 255; j ++)
-//	fluid_synth_cc(synth, j, 10, 120); /* 10=pan, between 0 and 127 */
-
 	last_ball = 0;
 	last_catch = 0;
 	last_note = 0;
@@ -172,7 +194,15 @@ void fur_elise_packet_received(struct juggle_packet_t* packet)
 
 	if (! play)
 	{
+		// Pause music
 		fluid_player_set_bpm(player, 0);
+
+		// Turn all notes off
+		int i;
+		for (i = 0; i <= 32; i ++) // To be sure, I think we have only 16 channels
+			fluid_synth_cc(synth, i, 123, 0); // 123 == all notes off
+
+
 		last_catch = 0;
 	}
 }
