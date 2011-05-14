@@ -5,7 +5,7 @@
 
 // http://en.wikipedia.org/wiki/General_MIDI
 
-#define NOTE_COUNT 14
+#define NOTE_COUNT 7
 int notes[] =
 {
 	C_MAJOR__G3,
@@ -16,7 +16,7 @@ int notes[] =
 	C_MAJOR__F4,
 	C_MAJOR__G4,
 	C_MAJOR__A4,
-	C_MAJOR__B_flat_4,
+/*	C_MAJOR__B_flat_4,
 	C_MAJOR__B4,
 
 	C_MAJOR__C5,
@@ -27,25 +27,30 @@ int notes[] =
 	C_MAJOR__G5,
 	C_MAJOR__A5,
 	C_MAJOR__B5,
+*/
 };
+
+// MIDI channel map, all channels, except 10=percussion
+int channels[] = { 1,2,3,4,5,6,7,8,9,11,12,13,14,15,16 };
 
 void c_major_test_thread(void* data);
 
 void c_major_activate(void * data)
 {
-    // Initialize percussion -> always bank 128, and channel 10 (General MIDI)
-//	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 1);
-//	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 16); //organ
-//	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 26); // jazz guitar
-//	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 12); // Marimba
-//	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 9); // Glockenspiel
-	fluid_synth_program_select(synth, 0, fluid_font_id, 0, 2); // eletric piano
+	// Initialize all channels
+	int i;
+	for (i = 0; i < NOTE_COUNT; i ++)
+	{
+		// Piano
+		fluid_synth_program_select(synth, channels[i], fluid_font_id, 0, 2); // eletric piano
 
+		// Pan
+		fluid_synth_cc(synth, channels[i], 10, 127*i/NOTE_COUNT); /* 10=pan, between 0 and 127 */
+	}
 
 	// Send colors
 	send_packet("RUN", 0, "fade", "000000:300");
 	sleep(1);
-	int i;
 	for(i = 0; i < BALL_COUNT; i ++)
 	{
 		int pos = ( 255*i/BALL_COUNT);
@@ -75,17 +80,20 @@ void c_major_deactivate(void)
 
 void c_major_packet_received(struct juggle_packet_t* packet)
 {
-//print_string("%s", packet->action);
-	// Midi channel 10 is always reserved for percussion
-	if (strcmp(packet->action, "CAUGHT") == 0 && packet->ball >= 1 && packet->ball <= NOTE_COUNT)
-        fluid_synth_noteoff(synth, 0, notes[packet->ball-1]);
+	if (packet->ball >= 1 && packet->ball <= NOTE_COUNT)
+	{
+		int channel = channels[packet->ball - 1];
+		int note = notes[packet->ball - 1];
 
-	if (strcmp(packet->action, "CAUGHT*") == 0 && packet->ball >= 1 && packet->ball <= NOTE_COUNT)
-        fluid_synth_noteoff(synth, 0, notes[packet->ball-1]);
+		if (strcmp(packet->action, "CAUGHT") == 0)
+			fluid_synth_noteoff(synth, channel, note);
 
-	if (strcmp(packet->action, "THROWN") == 0 && packet->ball >= 1 && packet->ball <= NOTE_COUNT)
-//	if (strcmp(packet->action, "IN_FREE_FALL") == 0 && packet->ball >= 1 && packet->ball <= NOTE_COUNT)
-        fluid_synth_noteon(synth, 0, notes[packet->ball-1], 100);
+		if (strcmp(packet->action, "CAUGHT*") == 0)
+			fluid_synth_noteoff(synth, channel, note);
+
+		if (strcmp(packet->action, "THROWN") == 0)
+			fluid_synth_noteon(synth, channel, note, 100);
+	}
 }
 
 

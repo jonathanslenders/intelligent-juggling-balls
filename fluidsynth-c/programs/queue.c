@@ -28,7 +28,7 @@ void intermezzo(void*data);
 void intermezzo2(void*data);
 void intermezzo3(void*data);
 
-#define QUEUE_LENGTH 13
+#define QUEUE_LENGTH 14
 
 struct queue_entry_t queue[] = {
 	// We will start by having all lights red, having the balls in a row,
@@ -50,6 +50,8 @@ struct queue_entry_t queue[] = {
 
 	// Play 'broeder jacob', followed by playing tetris tune.
 	{ proxy_program, "c-major"}, 
+
+	{ proxy_program, "three-chords"},
 
 	{ proxy_program, "fur-elise"},
 
