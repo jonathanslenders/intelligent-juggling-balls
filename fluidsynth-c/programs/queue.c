@@ -83,7 +83,7 @@ void activate_queue_entry(int position)
 {
 	// Turn all notes off
 	int i;
-	for (i = 0; i < 32; i ++)
+	for (i = 0; i <= 32; i ++) // To be sure, I think we have only 16 channels
 		fluid_synth_cc(synth, i, 123, 0); // 123 == all notes off
 
 	deactivate_proxied_program();
