@@ -57,7 +57,7 @@ struct queue_entry_t queue[] = {
 
 	// The end
 	{ proxy_program, "green"},
-	{ proxy_program, "red"},
+	{ black, NULL },
 	{ proxy_program, "the-end"},
 };
 

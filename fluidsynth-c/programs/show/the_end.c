@@ -37,8 +37,10 @@ void the_end_activate(void * data)
     // Initialize percussion -> always bank 128, and channel 10 (General MIDI)
 	fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
 	fluid_synth_program_select(synth, 1, fluid_font_id, 0, 127); // gunshot
+	fluid_synth_program_select(synth, 2, fluid_font_id, 0, 1); // piano
 	fluid_synth_cc(synth, 10, 7, 127); /* 7=volume, between 0 and 127 */
 	fluid_synth_cc(synth, 1, 7, 127); /* 7=volume, between 0 and 127 */
+	fluid_synth_cc(synth, 2, 7, 127); /* 7=volume, between 0 and 127 */
 
 }
 
@@ -53,7 +55,7 @@ void the_end_thread(void* data)
 
 
 	int i;
-	for (i = 0; i < 80; i ++)
+	for (i = 0; i < 60; i ++)
 	{
    		int wait = my_random(100);
 
@@ -63,6 +65,11 @@ void the_end_thread(void* data)
 		// Light ball
 		int ball = 1 + my_random(13);
 		send_packet("RUN", ball, "pulse", "FFFFFF_000000:80");
+
+		// Random pan
+		int pan = my_random(127);
+		fluid_synth_cc(synth, 10, 10, pan); /* 10=pan, between 0 and 127 */
+		fluid_synth_cc(synth, 1, 10, pan); /* 10=pan, between 0 and 127 */
 
 		// Play sound
    		int sound = my_random(13);  /* n is random number in range of 0 - 99 */
@@ -80,7 +87,23 @@ void the_end_thread(void* data)
 	{
 		usleep(400 * 1000);
 		fluid_synth_noteon(synth, 10, sounds[1], 100);
-		send_packet("RUN", 0, "fade", "FFFFFF_000000:80");
+		send_packet("RUN", 0, "pulse", "FFFFFF_000000:80");
 	}
-	send_packet("RUN", 0, "fixed", "000000");
+//	send_packet("RUN", 0, "fixed", "000000");
+
+	// fade in and the end sound
+	usleep(400*1000);
+
+#define END_NOTE_1 71 // G
+#define END_NOTE_2 69 // A
+#define END_NOTE_3 67 // B
+	send_packet("RUN", 0, "fade", "ffffff:200");
+
+	fluid_synth_noteon(synth, 2, END_NOTE_1, 100);
+	usleep(800*1000);
+	fluid_synth_noteoff(synth, 2, END_NOTE_1);
+	fluid_synth_noteon(synth, 2, END_NOTE_2, 100);
+	usleep(800*1000);
+	fluid_synth_noteoff(synth, 2, END_NOTE_2);
+	fluid_synth_noteon(synth, 2, END_NOTE_3, 100);
 }
