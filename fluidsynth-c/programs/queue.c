@@ -162,7 +162,8 @@ void queue_packet_received(struct juggle_packet_t * data)
 		// Reset synthesizer
 		fluid_synth_system_reset(synth);
 
-		if (data->ball == NEXT_BUTTON_ID)
+		// if (data->ball == NEXT_BUTTON_ID)
+		if (data->ball == NEXT_BUTTON_ID || data->ball == PREV_BUTTON_ID)
 		{
 			print_string("Button pressed, next part of the show");
 
@@ -175,10 +176,11 @@ void queue_packet_received(struct juggle_packet_t * data)
 				int sound = 58; // Vibra Slap
 				fluid_synth_noteon(synth, 10, sound, 127);
 
+				activate_queue_entry(queue_position);
 			}
 		}
 
-		if (data->ball == PREV_BUTTON_ID)
+		else if (data->ball == PREV_BUTTON_ID)
 		{
 			print_string("Button pressed, previous part of the show");
 
@@ -190,10 +192,10 @@ void queue_packet_received(struct juggle_packet_t * data)
 				fluid_synth_program_select(synth, 10, fluid_font_id, 128, 0);
 				int sound = 56;
 				fluid_synth_noteon(synth, 10, sound, 127);
+
+				activate_queue_entry(queue_position);
 			}
 		}
-
-		activate_queue_entry(queue_position);
 	}
 	
 	if (active_proxied_program && active_proxied_program->packet_received)
