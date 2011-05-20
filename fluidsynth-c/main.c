@@ -704,17 +704,18 @@ void simulate_catch(int ball);
 pthread_t safety_thread;
 void safety_thread_start(void* data)
 {
-    clock_t now = clock();
-
     while (running)
     {
         int i;
         for (i = 1; i <= BALL_COUNT; i ++)
-            if (juggle_states[i].in_free_fall)
+            if (juggle_states[i-1].in_free_fall)
             {
+    		clock_t now = clock();
+
                 // When a ball is longer than 2sec in the air, simulate a catch.
                 int duration = (now - juggle_states[i-1].throw_time) /
                                 (CLOCKS_PER_SEC/1000); // millisec
+	print_string("duration= %i", duration);
 
                 if (duration > 2500)
                     simulate_catch(i);

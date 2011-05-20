@@ -103,6 +103,7 @@ void three_chords_activate_thread(void* data)
 
 	initialized = true;
 
+return;
 
 	// Ready for part 2
 	sleep(18);

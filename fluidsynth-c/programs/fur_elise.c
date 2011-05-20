@@ -29,8 +29,7 @@ fluid_player_t* player;
 
 bool any_in_free_fall(ball1, ball2, ball3)
 {
-	return (last_ball == ball1 || last_ball == ball2 | last_ball == ball3);
-
+	// return (last_ball == ball1 || last_ball == ball2 | last_ball == ball3);
 
 	return (
 		juggle_states[ball1-1].in_free_fall |

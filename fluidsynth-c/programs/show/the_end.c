@@ -98,6 +98,8 @@ void the_end_thread(void* data)
 #define END_NOTE_2 69 // A
 #define END_NOTE_3 67 // B
 	send_packet("RUN", 0, "fade", "ffffff:200");
+	send_packet("RUN", 0, "fade", "000000:1000");
+return;
 
 	fluid_synth_noteon(synth, 2, END_NOTE_1, 100);
 	usleep(800*1000);
