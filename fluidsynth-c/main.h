@@ -86,6 +86,7 @@ struct juggle_ball_state_t
 	int catches;
 	char firmware_version[256];
 	char last_run_command[256];
+	clock_t throw_time;
 
 	// Ping test
 	clock_t ping_sent;

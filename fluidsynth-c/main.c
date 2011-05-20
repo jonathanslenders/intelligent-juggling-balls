@@ -24,7 +24,7 @@
 #include "programs.h"
 
 #define LOG_FILE "debug.out"
-FILE *log = NULL;
+FILE *logfile = NULL;
 
 
 /* ===============================[ Globals ]============================ */
@@ -163,8 +163,8 @@ void process_packet(struct juggle_packet_t* packet)
     // log packet
     char buffer[256];
     snprintf(buffer, 256, "%s %i %s %s\n", packet->action, packet->ball, packet->param1, packet->param2);
-    fwrite(log, buffer);
-    fflush(log);
+    fwrite(buffer, 1, strlen(buffer), logfile);
+    fflush(logfile);
 
     // Handle packet
 	int ball = packet->ball;
@@ -181,6 +181,7 @@ void process_packet(struct juggle_packet_t* packet)
 			}
 			else if (strcmp(packet->action, "THROWN") == 0)
 			{
+				juggle_states[ball-1].throw_time = clock();
 				juggle_states[ball-1].in_free_fall = true;
 				juggle_states[ball-1].on_table = false;
 				juggle_states[ball-1].throws ++;
@@ -251,8 +252,9 @@ void send_packet2(char* command, char* ball, char* param1, char* param2)
     // Sent packet
     int length = snprintf(buffer, 256, "%s %s %s %s\n", command, ball, param1, param2);
     write(serial_port, buffer, length);
+    usleep(10 * 1000); // wait 10ms and send again, this is to be sure for the show.
+    write(serial_port, buffer, length);
 }
-
 
 
 /* ===============================[ Fluid synth ]============================ */
@@ -697,6 +699,31 @@ void data_read_loop(void*ptr)
 	}
 }
 
+void simulate_catch(int ball);
+
+pthread_t safety_thread;
+void safety_thread_start(void* data)
+{
+    clock_t now = clock();
+
+    while (running)
+    {
+        int i;
+        for (i = 1; i <= BALL_COUNT; i ++)
+            if (juggle_states[i].in_free_fall)
+            {
+                // When a ball is longer than 2sec in the air, simulate a catch.
+                int duration = (now - juggle_states[i-1].throw_time) /
+                                (CLOCKS_PER_SEC/1000); // millisec
+
+                if (duration > 2500)
+                    simulate_catch(i);
+            }
+        sleep(1);
+    }
+}
+
+
 void print_status_window(void)
 {
 	// Print ball statusses
@@ -783,9 +810,10 @@ void simulate_catch(int ball)
 int main(void)
 {
     // Open log
-    log = fopen(LOG_FILE, "at");
-    fwrite(log, "----------------------------\n");
-    fflush(log);
+    logfile = fopen(LOG_FILE, "at");
+    char* line = "--------------------\n";
+    fwrite(line, 1, strlen(line), logfile);
+    fflush(logfile);
 
 	// Initialize everything
 	serial_port_open();
@@ -798,8 +826,9 @@ int main(void)
 	// Signal handlers
 	signal(SIGINT, (void*)sigint_handler);
 
-	// Start data read thread
+	// Start data read and safety thread
 	pthread_create(&data_read_thread, NULL, (void *) &data_read_loop, (void *) NULL);
+	pthread_create(&safety_thread, NULL, (void *) &safety_thread_start, (void *) NULL);
 
 	// Initialize ncurses 
 	initscr();
@@ -928,8 +957,9 @@ int main(void)
 
 	// Wait for data thread
 	pthread_join(data_read_thread, NULL);
+	pthread_join(safety_thread, NULL);
 
     // close log
-    fclose(log);
+    fclose(logfile);
 }
 
