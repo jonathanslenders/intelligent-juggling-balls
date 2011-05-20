@@ -23,6 +23,9 @@
 
 #include "programs.h"
 
+#define LOG_FILE "debug.out"
+FILE *log = NULL;
+
 
 /* ===============================[ Globals ]============================ */
 
@@ -157,6 +160,13 @@ bool parse_packet(char * input, struct juggle_packet_t* packet)
 
 void process_packet(struct juggle_packet_t* packet)
 {
+    // log packet
+    char buffer[256];
+    snprintf(buffer, 256, "%s %i %s %s\n", packet->action, packet->ball, packet->param1, packet->param2);
+    fwrite(log, buffer);
+    fflush(log);
+
+    // Handle packet
 	int ball = packet->ball;
 	if (ball >= 0 && ball <= BALL_COUNT)
 	{
@@ -772,6 +782,11 @@ void simulate_catch(int ball)
 
 int main(void)
 {
+    // Open log
+    log = fopen(LOG_FILE, "at");
+    fwrite(log, "----------------------------\n");
+    fflush(log);
+
 	// Initialize everything
 	serial_port_open();
 	init_fluidsynth();
@@ -913,5 +928,8 @@ int main(void)
 
 	// Wait for data thread
 	pthread_join(data_read_thread, NULL);
+
+    // close log
+    fclose(log);
 }
 
