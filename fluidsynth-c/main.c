@@ -57,7 +57,7 @@ int serial_line = 0;
 struct serial_queue_t
 {
 	char* string;
-    int line;
+	int line;
 	struct serial_queue_t* next; // TODO: I don't think we actually need the next pointer
 	struct serial_queue_t* prev;
 };
@@ -829,7 +829,7 @@ int main(void)
 
 	// Start data read and safety thread
 	pthread_create(&data_read_thread, NULL, (void *) &data_read_loop, (void *) NULL);
-	pthread_create(&safety_thread, NULL, (void *) &safety_thread_start, (void *) NULL);
+			// pthread_create(&safety_thread, NULL, (void *) &safety_thread_start, (void *) NULL);
 
 	// Initialize ncurses 
 	initscr();

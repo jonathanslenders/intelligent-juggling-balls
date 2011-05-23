@@ -55,7 +55,7 @@ void the_end_thread(void* data)
 
 
 	int i;
-	for (i = 0; i < 60; i ++)
+	for (i = 0; i < 35; i ++)
 	{
    		int wait = my_random(100);
 

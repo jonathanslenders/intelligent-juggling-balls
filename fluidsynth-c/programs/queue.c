@@ -155,7 +155,7 @@ void queue_packet_received(struct juggle_packet_t * data)
 	clock_t received = clock();
 	int duration = (received - last_next_command_received) / (CLOCKS_PER_SEC/1000); // millisec
 
-	if (strcmp(data->action, "BUTTON_PRESSED") == 0 && duration > 2000)
+	if (strcmp(data->action, "BUTTON_PRESSED") == 0 && duration > 1000)
 	{
 		last_next_command_received = received;
 
